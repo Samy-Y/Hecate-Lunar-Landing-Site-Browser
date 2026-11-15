@@ -206,4 +206,3 @@ npm run dev
 - **NASA SP-2020-5009602** — [Artemis III Science Definition Team Report](https://www.nasa.gov/wp-content/uploads/2015/01/artemis-iii-science-definition-report-12042020c.pdf)
 - **NASA TP-20250002845 (M2M-30044)** — [Moon-to-Mars South Pole Illumination & Environmental Baselines](https://ntrs.nasa.gov/citations/20250002845)
 - **NASA JPL Horizons** — [On-Line Solar System Ephemeris System](https://ssd.jpl.nasa.gov/horizons/)
-
