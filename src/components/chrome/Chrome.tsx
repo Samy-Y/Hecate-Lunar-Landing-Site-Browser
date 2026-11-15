@@ -69,17 +69,34 @@ export function ViewportTools() {
   const globe = useApp((s) => s.globe);
   const hidden = useApp((s) => s.uiHidden);
   if (hidden) return null;
+  const isAlbedo = globe.lighting === 'albedo';
+  const reliefDisabled = view !== '3d';
   return (
     <div className="vp-tools">
-      {view === '3d' && (
-        <button className={`btn small${globe.shadows ? ' on' : ''}`} onClick={() => useApp.getState().setGlobe({ shadows: !globe.shadows })} title="Enable / disable lunar cast shadows">Shadows {globe.shadows ? 'on' : 'off'}</button>
-      )}
-      <button className={`btn small${globe.lighting === 'albedo' ? ' on' : ''}`} onClick={() => useApp.getState().setGlobe({ lighting: globe.lighting === 'sun' ? 'albedo' : 'sun' })} title="Unoccluded albedo inspection">{globe.lighting === 'sun' ? 'Sun-lit' : 'Albedo'}</button>
-      {view === '3d' && (
-        <select value={globe.exaggeration} onChange={(e) => useApp.getState().setGlobe({ exaggeration: Number(e.target.value) })} aria-label="Vertical exaggeration (display only)" title="Vertical exaggeration — display only; analysis always uses true elevations">
-          {[1, 2, 4, 8].map((v) => <option key={v} value={v}>{v}× relief{v > 1 ? ' (display)' : ''}</option>)}
-        </select>
-      )}
+      <button
+        className={`btn small${globe.shadows && !isAlbedo ? ' on' : ''}`}
+        disabled={isAlbedo}
+        onClick={() => useApp.getState().setGlobe({ shadows: !globe.shadows })}
+        title={isAlbedo ? 'Cast shadows apply only in Sun-lit mode' : 'Enable / disable lunar cast shadows'}
+      >
+        Shadows {globe.shadows ? 'on' : 'off'}
+      </button>
+      <button
+        className={`btn small${isAlbedo ? ' on' : ''}`}
+        onClick={() => useApp.getState().setGlobe({ lighting: globe.lighting === 'sun' ? 'albedo' : 'sun' })}
+        title={isAlbedo ? 'Switch back to physical Sun illumination' : 'Unoccluded albedo inspection'}
+      >
+        {globe.lighting === 'sun' ? 'Sun-lit' : 'Albedo'}
+      </button>
+      <select
+        value={globe.exaggeration}
+        disabled={reliefDisabled}
+        onChange={(e) => useApp.getState().setGlobe({ exaggeration: Number(e.target.value) })}
+        aria-label="Vertical exaggeration (display only)"
+        title={reliefDisabled ? 'Vertical exaggeration applies in 3D view only' : 'Vertical exaggeration — display only; analysis always uses true elevations'}
+      >
+        {[1, 2, 4, 8].map((v) => <option key={v} value={v}>{v}× relief{v > 1 ? ' (display)' : ''}</option>)}
+      </select>
     </div>
   );
 }

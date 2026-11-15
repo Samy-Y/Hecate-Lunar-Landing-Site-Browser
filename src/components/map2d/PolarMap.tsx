@@ -159,7 +159,7 @@ export function PolarMap() {
     }
     // Time-dependent shaded illumination with cast shadows (GPU bake of the visible area).
     const il = illumRef.current;
-    if (il && st.globe.lighting === 'sun' && st.globe.shadows) drawRaster(il.canvas, il.rect, true, 0.88);
+    if (il && st.globe.lighting === 'sun') drawRaster(il.canvas, il.rect, true, 0.88);
     const { raster } = buildLayer(st.layer, runtime.data, st);
     if (raster) drawRaster(raster.canvas, raster.rect, raster.smooth, st.layerOpacity);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -186,7 +186,7 @@ export function PolarMap() {
   // GPU illumination bake of the visible area for the current epoch (throttled; re-run on pan/zoom).
   const bakeIllum = useCallback(async () => {
     const st = useApp.getState();
-    if (!runtime.bake2d || illumBusy.current || st.view !== '2d' || st.globe.lighting !== 'sun' || !st.globe.shadows) return;
+    if (!runtime.bake2d || illumBusy.current || st.view !== '2d' || st.globe.lighting !== 'sun') return;
     const v = view.current;
     const half = (Math.max(size.w, size.h) * v.s * 1.45) / 2;
     const W = runtime.data!.regional.pyr.info.W;
@@ -203,12 +203,13 @@ export function PolarMap() {
       cnv.width = cnv.height = n;
       const ctx = cnv.getContext('2d')!;
       const img = ctx.createImageData(n, n);
+      const useShadows = useApp.getState().globe.shadows;
       for (let j = 0; j < n; j++) {
         const src = (n - 1 - j) * n * 4;
         for (let i = 0; i < n; i++) {
           const a = src + i * 4, o = (j * n + i) * 4;
           if (px[a + 3] === 0) continue;
-          const f = px[a] / 255, lam = px[a + 2] / 255;
+          const f = useShadows ? px[a] / 255 : 1, lam = px[a + 2] / 255;
           const g = Math.round(8 + 247 * Math.pow(Math.min(1, lam * f * 1.25), 0.72));
           img.data[o] = g;
           img.data[o + 1] = g;
