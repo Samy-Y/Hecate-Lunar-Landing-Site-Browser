@@ -293,11 +293,11 @@ function SlideBody({ slide, qaId }: { slide: number; qaId: number | null }) {
           </p>
           <div className="pres-thumbs">
             <div className="pres-thumb">
-              <img src="/about/resolution_honesty.svg" alt="5 m resolution limit" />
+              <img src="/about/resolution_honesty.png" alt="5 m resolution limit" />
               <span><b>5 m / px DEM</b>Sub-meter rocks unresolved</span>
             </div>
             <div className="pres-thumb">
-              <img src="/about/geometric_only.svg" alt="Geometric lighting model" />
+              <img src="/about/geometric_only.png" alt="Geometric lighting model" />
               <span><b>Geometric Only</b>No thermal solver</span>
             </div>
           </div>
