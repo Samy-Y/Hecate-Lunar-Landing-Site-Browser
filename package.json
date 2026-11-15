@@ -1,0 +1,35 @@
+{
+  "name": "hecate-lunar-navigator",
+  "private": true,
+  "version": "2.1.0",
+  "description": "HECATE - Lunar Landing Site Navigator (NASA Space Apps 2026). React + TypeScript + Three.js decision-support app for the lunar South Pole on a full-Moon 3D globe.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@react-three/fiber": "8.17.10",
+    "astronomy-engine": "2.1.19",
+    "d3-scale": "4.0.2",
+    "d3-shape": "3.2.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "three": "0.169.0",
+    "zustand": "4.5.5"
+  },
+  "devDependencies": {
+    "@types/d3-scale": "4.0.8",
+    "@types/d3-shape": "3.1.6",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@types/three": "0.169.0",
+    "@vitejs/plugin-react": "4.3.3",
+    "typescript": "5.6.3",
+    "vite": "5.4.11",
+    "vitest": "2.1.5"
+  }
+}

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Analytical ephemeris validated against NASA JPL Horizons">
+  <rect width="160" height="160" rx="14" fill="#11141b" />
+  <ellipse cx="80" cy="80" rx="54" ry="30" transform="rotate(-18 80 80)" fill="none" stroke="#56b4e9" stroke-opacity="0.55" stroke-width="1.5" stroke-dasharray="4 3" />
+  <circle cx="80" cy="80" r="18" fill="#56b4e9" fill-opacity="0.28" stroke="#56b4e9" stroke-width="1.8" />
+  <circle cx="126" cy="58" r="8" fill="#cfd6e0" stroke="#fff" stroke-width="1.2" />
+  <circle cx="28" cy="38" r="9" fill="#ffd27a" />
+  <line x1="36" y1="43" x2="118" y2="57" stroke="#e69f00" stroke-width="1.2" stroke-opacity="0.7" />
+  <circle cx="126" cy="126" r="13" fill="#009e73" fill-opacity="0.22" stroke="#009e73" stroke-width="1.6" />
+  <path d="M120 126l4 4 8-9" fill="none" stroke="#009e73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="12" y="150" fill="#9fb0c4" font-family="ui-monospace, monospace" font-size="11" font-weight="700">JPL HORIZONS</text>
+</svg>
