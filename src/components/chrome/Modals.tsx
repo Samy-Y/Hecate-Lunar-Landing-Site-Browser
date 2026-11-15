@@ -48,6 +48,20 @@ const DISCLAIMERS = [
   },
 ] as const;
 
+interface TeamMember {
+  id: string;
+  name: string;
+  photo?: string;
+}
+
+const TEAM: readonly TeamMember[] = [
+  { id: 'nabil', name: 'Nabil Es-Saadi', photo: '/team/nabil.jpg' },
+  { id: 'samy', name: 'Samy Youssoufine', photo: '/team/samy.jpg' },
+  { id: 'rim', name: 'Rim Oukhouya', photo: '/team/rim.jpg' },
+  { id: 'yasmine', name: 'Yasmine Machkour', photo: '/team/yasmine.jpg' },
+  { id: 'rayane', name: 'Rayane Ayad', photo: '/team/rayane.jpg' },
+];
+
 export function AboutModal() {
   const m = runtime.data?.manifest;
   return (
@@ -91,7 +105,30 @@ export function AboutModal() {
         <li><a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener noreferrer">NASA JPL Horizons</a> — Ephemeris System; <a href="https://www.nasa.gov/wp-content/uploads/2015/01/artemis-iii-science-definition-report-12042020c.pdf" target="_blank" rel="noopener noreferrer">NASA SP-2020-5009602 Artemis III SDT Report</a>; <a href="https://ntrs.nasa.gov/citations/20250002845" target="_blank" rel="noopener noreferrer">NASA M2M-30044 (TP-20250002845)</a></li>
         <li><a href="https://doi.org/10.1016/j.icarus.2014.07.018" target="_blank" rel="noopener noreferrer">Cahill et al. 2014</a> — <a href="https://doi.org/10.17189/1520656" target="_blank" rel="noopener noreferrer">LRO Mini-RF global CPR mosaic (PDS)</a>; <a href="https://svs.gsfc.nasa.gov/4720" target="_blank" rel="noopener noreferrer">NASA SVS 4720 CGI Moon Kit</a></li>
       </ul>
-      <p className="small muted">NASA Space Apps 2026 · HECATE v2.1 · technical documentation: docs/TECHNICAL_ENGINEERING.md</p>
+      <h3>Meet the team</h3>
+      <p className="team-intro">
+        <b>Team HECATE</b> is a group of engineering students at <b>EMINES – School of Industrial Management (UM6P)</b>, brought together by a shared passion for astronomy, planetary science, data science, and software engineering.
+      </p>
+      <div className="team-grid" role="list">
+        {TEAM.map((member) => (
+          <article key={member.id} className="team-card" role="listitem">
+            <div className="team-avatar" aria-hidden="true">
+              {member.photo && (
+                <img
+                  src={member.photo}
+                  alt={member.name}
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              )}
+            </div>
+            <strong className="team-name">{member.name}</strong>
+          </article>
+        ))}
+      </div>
+      <p className="small muted about-foot">NASA Space Apps 2026 · HECATE v2.1</p>
     </Modal>
   );
 }

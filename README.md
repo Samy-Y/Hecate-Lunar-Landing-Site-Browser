@@ -90,19 +90,19 @@ Three literature-backed mission presets are included (all thresholds can be cust
 
 <table>
   <tr>
-    <td width="64" align="center"><img src="./public/about/real_nasa_terrain.svg" width="48" alt="Real NASA terrain"></td>
+    <td width="80" align="center"><img src="./public/about/real_nasa_terrain.png" width="64" alt="Real NASA terrain"></td>
     <td><b>Real NASA Terrain</b><br>All topography comes directly from LRO LOLA altimetry: <code>5 m</code> polar DEMs, PGDA Product 78 track-adjusted Artemis site patches, the PGDA Product 90 <code>80 m</code> regional DEM, and the <code>16 ppd</code> global model.</td>
   </tr>
   <tr>
-    <td width="64" align="center"><img src="./public/about/resolution_honesty.svg" width="48" alt="Resolution honesty"></td>
+    <td width="80" align="center"><img src="./public/about/resolution_honesty.png" width="64" alt="Resolution honesty"></td>
     <td><b>Resolution Honesty</b><br>A <code>5 m</code> grid is not <code>5 m</code> of measurement where orbital tracks diverge. Cells without sufficient LOLA shot counts or effective resolution are marked <code>UNKNOWN / LOW CONFIDENCE</code>, never <code>PASS</code>.</td>
   </tr>
   <tr>
-    <td width="64" align="center"><img src="./public/about/geometric_only.svg" width="48" alt="Geometric only"></td>
+    <td width="80" align="center"><img src="./public/about/geometric_only.png" width="64" alt="Geometric only"></td>
     <td><b>Geometric Scope</b><br>Sunlight models geometric visibility of the <code>0.53°</code> solar disk above the terrain horizon; DTE models line-of-sight clearance (not an RF link budget); Mini-RF CPR is kept as an independent S-band radar roughness layer.</td>
   </tr>
   <tr>
-    <td width="64" align="center"><img src="./public/about/ephemeris.svg" width="48" alt="Ephemeris"></td>
+    <td width="80" align="center"><img src="./public/about/ephemeris.png" width="64" alt="Ephemeris"></td>
     <td><b>Two-Tier Ephemeris</b><br>Tier 1 runs locally (<code>astronomy-engine</code> + IAU lunar orientation) for fast screening; Tier 2 cross-checks inspected sites live against the <b>NASA JPL Horizons</b> API when online.</td>
   </tr>
 </table>
@@ -139,7 +139,7 @@ Three literature-backed mission presets are included (all thresholds can be cust
 
 ```text
 ├── public/
-│   ├── about/          # Scientific disclaimer graphics (.svg / .png)
+│   ├── about/          # Scientific disclaimer graphics (.png)
 │   ├── brand/          # HECATE logos
 │   └── data/           # Compressed LOLA DEM tiles (.bin.gz), horizon grids, PSRs & manifest.json
 ├── src/
