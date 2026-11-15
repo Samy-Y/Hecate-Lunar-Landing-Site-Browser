@@ -49,3 +49,4 @@ npm run dev
 - `public/data/` — LOLA elevation/confidence tiles, PSR outlines, and site catalog manifest
 - `public/brand/` — HECATE SVG branding assets
 - `public/about/` — Scientific disclaimer card assets (`real_nasa_terrain.png`, `resolution_honesty.png`, `geometric_only.png`, `ephemeris.png`), with bundled `.svg` fallbacks when PNGs are not provided
+
