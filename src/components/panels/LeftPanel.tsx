@@ -18,7 +18,7 @@ import { fmt, HOUR_MS } from '../../lib/math';
 import { Icon } from '../common/Icons';
 import { InfoTip } from '../common/InfoTip';
 import { StatusBadge } from '../common/Badges';
-import { tx } from '../common/Tx';
+import { plainMath, tx } from '../common/Tx';
 
 export function ResetButton({ isDefault, defaultLabel, onReset }: { isDefault: boolean; defaultLabel: string; onReset: () => void }) {
   return (
@@ -63,12 +63,12 @@ export function Field({
       <span className="field-label">
         {tip ? <InfoTip id={tip}>{label}</InfoTip> : <span>{tx(label)}</span>}
         <span className="field-val">
-          <input type="number" value={Number.isFinite(value) ? +value.toFixed(4) : ''} min={min} max={max} step={step} onChange={(e) => e.target.value !== '' && onChange(Number(e.target.value))} aria-label={label} />
+          <input type="number" value={Number.isFinite(value) ? +value.toFixed(4) : ''} min={min} max={max} step={step} onChange={(e) => e.target.value !== '' && onChange(Number(e.target.value))} aria-label={plainMath(label)} />
           {unit && <span className="unit">{unit}</span>}
           {onReset && <ResetButton isDefault={isDefault} defaultLabel={defText} onReset={onReset} />}
         </span>
       </span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={`${label} slider`} />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={`${plainMath(label)} slider`} />
       {cite && <span className="cite">{cite}</span>}
     </div>
   );
@@ -304,9 +304,9 @@ function TimeSection() {
           const t = parseUtc(e.target.value);
           if (Number.isFinite(t) && t > c.t0) setC({ missionH: Math.round(((t - c.t0) / HOUR_MS) * 10) / 10 });
         }} />
-        <span className="cite">Duration T<sub>mission</sub> = {fmtHours(c.missionH)} ({c.missionH} h){cite('missionH') ? ` · ${cite('missionH')}` : ''}</span>
+        <span className="cite">{tx(`Duration $T_{\\mathrm{mission}} = ${fmtHours(c.missionH)}$ (${c.missionH} h)${cite('missionH') ? ` · ${cite('missionH')}` : ''}`)}</span>
       </div>
-      <Field label="Launch slip ±Δt" tip="slip" unit={`${(c.slipH / 24).toFixed(1)} d`} value={c.slipH} min={0} max={720} step={6} onChange={(v) => setC({ slipH: v })} cite={cite('slipH')} defaultValue={base.criteria.slipH} defaultLabel={`${base.criteria.slipH} h`} onReset={() => setC({ slipH: base.criteria.slipH })} />
+      <Field label="Launch slip $\pm\Delta t$" tip="slip" unit={`${(c.slipH / 24).toFixed(1)} d`} value={c.slipH} min={0} max={720} step={6} onChange={(v) => setC({ slipH: v })} cite={cite('slipH')} defaultValue={base.criteria.slipH} defaultLabel={`${base.criteria.slipH} h`} onReset={() => setC({ slipH: base.criteria.slipH })} />
       <p className="small muted">The pink mission window on the timeline can be dragged; turn on “follow playhead” there to animate every time-dependent layer.</p>
     </div>
   );
@@ -320,11 +320,11 @@ function SunSection() {
   useApp((s) => s.tier);
   return (
     <div className="sec-body">
-      <Field label="Min Sun elevation θ_sun,min" tip="sunMin" unit="°" value={c.sunMinEl} min={0} max={10} step={0.1} onChange={(v) => setC({ sunMinEl: v })} cite={cite('sunMinEl')} defaultValue={base.criteria.sunMinEl} onReset={() => setC({ sunMinEl: base.criteria.sunMinEl })} />
-      <Field label="Min continuous sunlight D_sun,min" tip="dSun" unit="h" value={c.dSunMinH} min={0} max={720} step={1} onChange={(v) => setC({ dSunMinH: v })} cite={cite('dSunMinH')} defaultValue={base.criteria.dSunMinH} onReset={() => setC({ dSunMinH: base.criteria.dSunMinH })} />
-      {adv() && <Field label="Max darkness D_dark,max" tip="dDark" unit="h" value={c.dDarkMaxH} min={0} max={200} step={1} onChange={(v) => setC({ dDarkMaxH: v })} cite={cite('dDarkMaxH')} defaultValue={base.criteria.dDarkMaxH} onReset={() => setC({ dDarkMaxH: base.criteria.dDarkMaxH })} />}
-      {adv() && <Field label="Min disk fraction f_sun,min" tip="fSun" unit="%" value={Math.round(c.fSunMin * 100)} min={1} max={100} step={1} onChange={(v) => setC({ fSunMin: v / 100 })} defaultValue={Math.round(base.criteria.fSunMin * 100)} onReset={() => setC({ fSunMin: base.criteria.fSunMin })} />}
-      {!adv() && <p className="small muted">Advanced tier shows D<sub>dark,max</sub> and f<sub>sun,min</sub>.</p>}
+      <Field label="Min Sun elevation $\theta_{\mathrm{sun,min}}$" tip="sunMin" unit="°" value={c.sunMinEl} min={0} max={10} step={0.1} onChange={(v) => setC({ sunMinEl: v })} cite={cite('sunMinEl')} defaultValue={base.criteria.sunMinEl} onReset={() => setC({ sunMinEl: base.criteria.sunMinEl })} />
+      <Field label="Min continuous sunlight $D_{\mathrm{sun,min}}$" tip="dSun" unit="h" value={c.dSunMinH} min={0} max={720} step={1} onChange={(v) => setC({ dSunMinH: v })} cite={cite('dSunMinH')} defaultValue={base.criteria.dSunMinH} onReset={() => setC({ dSunMinH: base.criteria.dSunMinH })} />
+      {adv() && <Field label="Max darkness $D_{\mathrm{dark,max}}$" tip="dDark" unit="h" value={c.dDarkMaxH} min={0} max={200} step={1} onChange={(v) => setC({ dDarkMaxH: v })} cite={cite('dDarkMaxH')} defaultValue={base.criteria.dDarkMaxH} onReset={() => setC({ dDarkMaxH: base.criteria.dDarkMaxH })} />}
+      {adv() && <Field label="Min disk fraction $f_{\mathrm{sun,min}}$" tip="fSun" unit="%" value={Math.round(c.fSunMin * 100)} min={1} max={100} step={1} onChange={(v) => setC({ fSunMin: v / 100 })} defaultValue={Math.round(base.criteria.fSunMin * 100)} onReset={() => setC({ fSunMin: base.criteria.fSunMin })} />}
+      {!adv() && <p className="small muted">{tx('Advanced tier shows $D_{\\mathrm{dark,max}}$ and $f_{\\mathrm{sun,min}}$.')}</p>}
     </div>
   );
 }
@@ -338,8 +338,8 @@ function CommSection() {
   return (
     <div className="sec-body">
       <Toggle label="Geometric DTE required" tip="dte" checked={c.dteRequired} onChange={(v) => setC({ dteRequired: v })} defaultChecked={base.criteria.dteRequired} onReset={() => setC({ dteRequired: base.criteria.dteRequired })} />
-      <Field label="Min DTE duty C_earth,min" tip="dte" unit="%" value={c.cEarthMin} min={0} max={100} step={1} onChange={(v) => setC({ cEarthMin: v })} cite={cite('cEarthMin')} defaultValue={base.criteria.cEarthMin} onReset={() => setC({ cEarthMin: base.criteria.cEarthMin })} />
-      {adv() && <Field label="Min Earth clearance θ_earth,min" unit="°" value={c.earthMinEl} min={0} max={7} step={0.1} onChange={(v) => setC({ earthMinEl: v })} cite={cite('earthMinEl')} defaultValue={base.criteria.earthMinEl} onReset={() => setC({ earthMinEl: base.criteria.earthMinEl })} />}
+      <Field label="Min DTE duty $C_{\mathrm{earth,min}}$" tip="dte" unit="%" value={c.cEarthMin} min={0} max={100} step={1} onChange={(v) => setC({ cEarthMin: v })} cite={cite('cEarthMin')} defaultValue={base.criteria.cEarthMin} onReset={() => setC({ cEarthMin: base.criteria.cEarthMin })} />
+      {adv() && <Field label="Min Earth clearance $\theta_{\mathrm{earth,min}}$" unit="°" value={c.earthMinEl} min={0} max={7} step={0.1} onChange={(v) => setC({ earthMinEl: v })} cite={cite('earthMinEl')} defaultValue={base.criteria.earthMinEl} onReset={() => setC({ earthMinEl: base.criteria.earthMinEl })} />}
     </div>
   );
 }
@@ -352,10 +352,10 @@ function TerrainSection() {
   useApp((s) => s.tier);
   return (
     <div className="sec-body">
-      <Field label="Max slope α_max" tip="slope" unit="°" value={c.slopeMax} min={2} max={25} step={0.5} onChange={(v) => setC({ slopeMax: v })} cite={cite('slopeMax')} defaultValue={base.criteria.slopeMax} onReset={() => setC({ slopeMax: base.criteria.slopeMax })} />
+      <Field label="Max slope $\alpha_{\max}$" tip="slope" unit="°" value={c.slopeMax} min={2} max={25} step={0.5} onChange={(v) => setC({ slopeMax: v })} cite={cite('slopeMax')} defaultValue={base.criteria.slopeMax} onReset={() => setC({ slopeMax: base.criteria.slopeMax })} />
       <div className="field">
         <span className="field-label">
-          <InfoTip id="slope">Slope baseline L_base</InfoTip>
+          <InfoTip id="slope">{'Slope baseline $L_{\\mathrm{base}}$'}</InfoTip>
           <ResetButton isDefault={c.lBase === base.criteria.lBase} defaultLabel={`${base.criteria.lBase} m`} onReset={() => setC({ lBase: base.criteria.lBase })} />
         </span>
         <div className="seg">
@@ -364,7 +364,7 @@ function TerrainSection() {
       </div>
       <div className="field">
         <span className="field-label">
-          <InfoTip id="ellipse">Landing ellipse R_ellipse</InfoTip>
+          <InfoTip id="ellipse">{'Landing ellipse $R_{\\mathrm{ellipse}}$'}</InfoTip>
           <ResetButton isDefault={c.ellipseR === base.criteria.ellipseR} defaultLabel={base.criteria.ellipseR === 0 ? 'Point' : `${base.criteria.ellipseR} m`} onReset={() => setC({ ellipseR: base.criteria.ellipseR })} />
         </span>
         <div className="seg">
@@ -377,7 +377,7 @@ function TerrainSection() {
           <Toggle label="TRI as hard gate" checked={c.triGate} onChange={(v) => setC({ triGate: v })} defaultChecked={base.criteria.triGate} onReset={() => setC({ triGate: base.criteria.triGate })} />
           <Field label="Max radar CPR" tip="cpr" value={c.cprMax} min={0.2} max={1.5} step={0.05} onChange={(v) => setC({ cprMax: v })} defaultValue={base.criteria.cprMax} onReset={() => setC({ cprMax: base.criteria.cprMax })} />
           <Toggle label="CPR as hard gate" checked={c.cprGate} onChange={(v) => setC({ cprGate: v })} defaultChecked={base.criteria.cprGate} onReset={() => setC({ cprGate: base.criteria.cprGate })} />
-          <Field label="Min data confidence C_data,min" tip="confidence" value={c.confMin} min={0} max={100} step={1} onChange={(v) => setC({ confMin: v })} defaultValue={base.criteria.confMin} onReset={() => setC({ confMin: base.criteria.confMin })} />
+          <Field label="Min data confidence $C_{\mathrm{data,min}}$" tip="confidence" value={c.confMin} min={0} max={100} step={1} onChange={(v) => setC({ confMin: v })} defaultValue={base.criteria.confMin} onReset={() => setC({ confMin: base.criteria.confMin })} />
         </>
       )}
     </div>
@@ -392,7 +392,7 @@ function ScienceSection() {
   return (
     <div className="sec-body">
       <Toggle label="PSR proximity filter" tip="psr" checked={c.psrFilter} onChange={(v) => setC({ psrFilter: v })} defaultChecked={base.criteria.psrFilter} onReset={() => setC({ psrFilter: base.criteria.psrFilter })} />
-      <Field label="Max distance to PSR d_PSR,max" unit="km" value={c.dPsrMax} min={0.5} max={30} step={0.5} onChange={(v) => setC({ dPsrMax: v })} cite={cite('dPsrMax')} defaultValue={base.criteria.dPsrMax} onReset={() => setC({ dPsrMax: base.criteria.dPsrMax })} />
+      <Field label="Max distance to PSR $d_{\mathrm{PSR,max}}$" unit="km" value={c.dPsrMax} min={0.5} max={30} step={0.5} onChange={(v) => setC({ dPsrMax: v })} cite={cite('dPsrMax')} defaultValue={base.criteria.dPsrMax} onReset={() => setC({ dPsrMax: base.criteria.dPsrMax })} />
       <p className="small muted">PSR outlines: PGDA Product 69 (LOLA-derived permanently shadowed regions).</p>
     </div>
   );
@@ -405,8 +405,8 @@ function PowerSection() {
   const rated = 1361 * p.areaM2 * p.efficiency;
   return (
     <div className="sec-body">
-      <p className="sec-intro"><InfoTip id="power">Solar power generation</InfoTip> — P = S·A·η·(1−L)·f<sub>sun</sub>·max(0, cos i)</p>
-      <Field label="Panel inclination β (from horizontal)" unit="°" value={p.tiltDeg} min={0} max={90} step={1} onChange={(v) => set({ tiltDeg: v })} cite="90° = vertical mast panel (typical at the pole), 0° = flat deck" defaultValue={DEFAULT_POWER.tiltDeg} onReset={() => set({ tiltDeg: DEFAULT_POWER.tiltDeg })} />
+      <p className="sec-intro"><InfoTip id="power">Solar power generation</InfoTip> — {tx('$P = S \\cdot A \\cdot \\eta \\cdot (1 - L) \\cdot f_{\\mathrm{sun}} \\cdot \\max(0, \\cos i)$')}</p>
+      <Field label="Panel inclination $\beta$ (from horizontal)" unit="°" value={p.tiltDeg} min={0} max={90} step={1} onChange={(v) => set({ tiltDeg: v })} cite="90° = vertical mast panel (typical at the pole), 0° = flat deck" defaultValue={DEFAULT_POWER.tiltDeg} onReset={() => set({ tiltDeg: DEFAULT_POWER.tiltDeg })} />
       <div className="field">
         <span className="field-label">
           <span>Panel orientation</span>
@@ -418,12 +418,12 @@ function PowerSection() {
         </div>
       </div>
       {p.azMode === 'fixed' && <Field label="Panel azimuth (clockwise from N)" unit="°" value={p.azDeg} min={0} max={359} step={1} onChange={(v) => set({ azDeg: v })} defaultValue={DEFAULT_POWER.azDeg} onReset={() => set({ azDeg: DEFAULT_POWER.azDeg })} />}
-      <Field label="Array area A" unit="m²" value={p.areaM2} min={0.5} max={200} step={0.5} onChange={(v) => set({ areaM2: v })} defaultValue={DEFAULT_POWER.areaM2} onReset={() => set({ areaM2: DEFAULT_POWER.areaM2 })} />
-      <Field label="Conversion efficiency η" unit="%" value={Math.round(p.efficiency * 1000) / 10} min={5} max={45} step={0.5} onChange={(v) => set({ efficiency: v / 100 })} cite="Triple-junction GaAs ≈ 28–32 %, silicon ≈ 18–22 %" defaultValue={Math.round(DEFAULT_POWER.efficiency * 1000) / 10} onReset={() => set({ efficiency: DEFAULT_POWER.efficiency })} />
-      <Field label="System losses L" unit="%" value={p.lossesPct} min={0} max={60} step={1} onChange={(v) => set({ lossesPct: v })} cite="Thermal, degradation, wiring, MPPT" defaultValue={DEFAULT_POWER.lossesPct} onReset={() => set({ lossesPct: DEFAULT_POWER.lossesPct })} />
+      <Field label="Array area $A$" unit="m²" value={p.areaM2} min={0.5} max={200} step={0.5} onChange={(v) => set({ areaM2: v })} defaultValue={DEFAULT_POWER.areaM2} onReset={() => set({ areaM2: DEFAULT_POWER.areaM2 })} />
+      <Field label="Conversion efficiency $\eta$" unit="%" value={Math.round(p.efficiency * 1000) / 10} min={5} max={45} step={0.5} onChange={(v) => set({ efficiency: v / 100 })} cite="Triple-junction GaAs ≈ 28–32 %, silicon ≈ 18–22 %" defaultValue={Math.round(DEFAULT_POWER.efficiency * 1000) / 10} onReset={() => set({ efficiency: DEFAULT_POWER.efficiency })} />
+      <Field label="System losses $L$" unit="%" value={p.lossesPct} min={0} max={60} step={1} onChange={(v) => set({ lossesPct: v })} cite="Thermal, degradation, wiring, MPPT" defaultValue={DEFAULT_POWER.lossesPct} onReset={() => set({ lossesPct: DEFAULT_POWER.lossesPct })} />
       <Field label="Required mean power (0 = none)" unit="W" value={p.minMeanW} min={0} max={10000} step={50} onChange={(v) => set({ minMeanW: v })} defaultValue={DEFAULT_POWER.minMeanW} onReset={() => set({ minMeanW: DEFAULT_POWER.minMeanW })} />
       <div className="kv">
-        <span>Rated at 1 AU (P<sub>rated</sub>)</span><b className="mono">{fmt(rated / 1000, 2)} kW</b>
+        <span>{tx('Rated at $1\\,\\mathrm{AU}$ ($P_{\\mathrm{rated}}$)')}</span><b className="mono">{fmt(rated / 1000, 2)} kW</b>
         {a?.power && (
           <>
             <span>Mean over mission</span><b className="mono">{fmt(a.power.meanW, 0)} W</b>
@@ -478,11 +478,11 @@ function SearchSection() {
           {Math.abs(fr.tLand - tLand) > 60_000 && <p className="note">Mission window moved — results update automatically when Auto is on.</p>}
           <div className="fs-reasons">
             {Object.entries(fr.counts.byReason).filter(([, n]) => n > 0).map(([k, n]) => (
-              <span key={k} className="chip">{k === 'dsun' ? <>D<sub>sun</sub></> : k === 'ddark' ? <>D<sub>dark</sub></> : k === 'dte' ? 'DTE' : k.toUpperCase()} ✕ {n}</span>
+              <span key={k} className="chip">{k === 'dsun' ? tx('$D_{\\mathrm{sun}}$') : k === 'ddark' ? tx('$D_{\\mathrm{dark}}$') : k === 'dte' ? 'DTE' : k.toUpperCase()} ✕ {n}</span>
             ))}
           </div>
           {fr.counts.pass === 0 && fr.counts.candidates > 0 && (
-            <p className="note">Footpad slope at L<sub>base</sub> = {fr.lBase} m is not resolved by the {Math.round(fr.regionalDx)} m regional screen, so screen-passed cells are <b>UNKNOWN</b> until inspected on 5 m LOLA data (Site Analysis).</p>
+            <p className="note">{tx(`Footpad slope at $L_{\\mathrm{base}} = ${fr.lBase}\\,\\mathrm{m}$ is not resolved by the ${Math.round(fr.regionalDx)} m regional screen, so screen-passed cells are `)}<b>UNKNOWN</b> until inspected on 5 m LOLA data (Site Analysis).</p>
           )}
           <ol className="cand-list">
             {fr.top.slice(0, 10).map((t, i) => (

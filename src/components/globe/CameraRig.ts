@@ -22,8 +22,8 @@ import { clamp, cross, DEG, dot, normalize, R_MOON_KM, type Vec3 } from '../../l
 export interface RigCallbacks {
   elevationM: (lat: number, lon: number) => number;
   pick: (ndc: THREE.Vector2) => THREE.Vector3 | null;
-  onSelect: (lat: number, lon: number) => void;
-  onHover: (lat: number, lon: number, elevM: number | null) => void;
+  onSelect: (lat: number, lon: number, shiftKey: boolean, altKey: boolean) => void;
+  onHover: (lat: number, lon: number, elevM: number | null, altKey?: boolean) => void;
   onPinKey: () => void;
 }
 
@@ -282,7 +282,7 @@ export class CameraRig {
       const hit = this.cb.pick(ndc);
       if (hit) {
         const [lat, lon] = unitToLatLon(sceneToBody([hit.x, hit.y, hit.z]));
-        this.cb.onHover(lat, lon, (hit.length() - R_MOON_KM) * 1000);
+        this.cb.onHover(lat, lon, (hit.length() - R_MOON_KM) * 1000, e.altKey);
       } else this.cb.onHover(NaN, NaN, null);
     };
     const onUp = (e: PointerEvent) => {
@@ -292,7 +292,7 @@ export class CameraRig {
         const hit = this.pickBody(this.toNdc(e));
         if (hit) {
           const [lat, lon] = unitToLatLon(hit);
-          this.cb.onSelect(lat, lon);
+          this.cb.onSelect(lat, lon, e.shiftKey, e.altKey);
         }
       }
     };

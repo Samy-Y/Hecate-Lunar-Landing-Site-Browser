@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { bodyFixed, bodyToScene, latLonToPolar, polarToLatLon, fmtLat, fmtLon } from '../../lib/geo';
 import { R_MOON_KM, normalize, type Vec3 } from '../../lib/math';
 import { geometryAt } from '../../science/ephemeris';
+import { resolvePolarHover, resolvePolarSelection } from '../../science/gridSnap';
 import { runtime } from '../../store/runtime';
 import { useApp } from '../../store/useApp';
 import { useRuntimeData } from '../common/useRuntimeData';
@@ -133,6 +134,7 @@ function GlobeScene({ labelsRef }: { labelsRef: React.MutableRefObject<HTMLDivEl
   const focus = useRef<{ busy: boolean; cx: number; cy: number; width: number; k: number; dirty: boolean } | null>(null);
   const fpsAcc = useRef({ n: 0, t: 0, pub: 0, res: 0 });
   const markers = useMemo(() => new THREE.Group(), []);
+  const hoverCellGroup = useMemo(() => new THREE.Group(), []);
   const vectors = useMemo(() => {
     const g = new THREE.Group();
     const len = R_MOON_KM * 1.9;
@@ -209,21 +211,51 @@ gl_FragColor = vec4(col*(0.03+1.1*d), 1.0); }`,
     const rig: CameraRig = new CameraRig(camera as THREE.PerspectiveCamera, gl.domElement, {
       elevationM: (lat: number, lon: number): number => sampler.elevation(lat, lon, Math.max(5, rigRange.v * 2.5)) * terrain.exaggeration,
       pick: (ndc) => pickAt(ndc)?.point.clone() ?? null,
-      onSelect: (lat, lon) => {
-        if (useApp.getState().screen !== 'workbench') return;
+      onSelect: (lat, lon, shiftKey, altKey) => {
+        const st = useApp.getState();
+        if (st.screen !== 'workbench') return;
         if (lat > -79.9) {
-          useApp.getState().notify(
-            `This software covers only the lunar South Pole (80°S–90°S). Clicked ${fmtLat(lat, 2)} ${fmtLon(lon, useApp.getState().lonConvention)}.`,
+          st.notify(
+            `This software covers only the lunar South Pole (80°S–90°S). Clicked ${fmtLat(lat, 2)} ${fmtLon(lon, st.lonConvention)}.`,
             { icon: 'warn' },
           );
           return;
         }
         const [x, y] = latLonToPolar(lat, lon);
-        const site = data.manifest.sites.find((s) => Math.hypot(s.x - x, s.y - y) < Math.max(150, rig.range * 8));
-        if (site) useApp.getState().select({ x: site.x, y: site.y, lat: site.lat, lon: site.lon, siteId: site.id, name: site.name });
-        else useApp.getState().select({ x, y, lat, lon: (lon + 360) % 360, siteId: null, name: `${fmtLat(lat, 3)} ${fmtLon(lon)}` });
+        const resolved = resolvePolarSelection(data, st.forward, x, y, {
+          siteSnapM: Math.max(150, rig.range * 8),
+          snapCells: st.snapToCells && !altKey,
+          lonConvention: st.lonConvention,
+        });
+        if (resolved) st.pickMapSite(resolved.selection, shiftKey);
+        else st.pickMapSite({ x, y, lat, lon: (lon + 360) % 360, siteId: null, name: `${fmtLat(lat, 3)} ${fmtLon(lon)}` }, shiftKey);
       },
-      onHover: (lat, lon, elevM) => useApp.getState().set({ hover: Number.isNaN(lat) ? null : { lat, lon, elev: elevM === null ? null : elevM / terrain.exaggeration } }),
+      onHover: (lat, lon, elevM, altKey) => {
+        const st = useApp.getState();
+        if (Number.isNaN(lat)) {
+          st.set({ hover: null });
+          return;
+        }
+        const rawElev = elevM === null ? null : elevM / terrain.exaggeration;
+        if (lat <= -79.9 && st.screen === 'workbench') {
+          const h = resolvePolarHover(data, st.forward, lat, lon, rawElev, {
+            siteSnapM: Math.max(150, rig.range * 8),
+            snapCells: st.snapToCells && !altKey,
+            lonConvention: st.lonConvention,
+          });
+          st.set({
+            hover: {
+              lat: h.lat,
+              lon: h.lon,
+              elev: h.elev,
+              ...(h.cell ? { cell: { row: h.cell.row, col: h.cell.col, x: h.cell.x, y: h.cell.y, dx: h.cell.dx, status: h.cell.status, passedRank: h.cell.passedRank } } : {}),
+              label: h.label || undefined,
+            },
+          });
+        } else {
+          st.set({ hover: { lat, lon, elev: rawElev } });
+        }
+      },
       onPinKey: () => useApp.getState().screen === 'workbench' && useApp.getState().togglePin(),
     });
     rig.focus = normalize(bodyFixed(-75, 20, 1));
@@ -450,17 +482,38 @@ gl_FragColor = vec4(col*(0.03+1.1*d), 1.0); }`,
     }
   }, [selection, pins, showEva, ellipseR, exaggeration, markers, labelsRef, dataVersion, data, screen]);
 
+  const hoverCell = useApp((s) => s.hover?.cell);
+  useEffect(() => {
+    const sy = sys.current;
+    hoverCellGroup.clear();
+    if (!sy || screen !== 'workbench' || !hoverCell) return;
+    const h = hoverCell.dx / 2;
+    const corners: [number, number][] = [
+      [hoverCell.x - h, hoverCell.y + h],
+      [hoverCell.x + h, hoverCell.y + h],
+      [hoverCell.x + h, hoverCell.y - h],
+      [hoverCell.x - h, hoverCell.y - h],
+      [hoverCell.x - h, hoverCell.y + h],
+    ];
+    const pts = corners.map(([cx, cy]) => {
+      const [la, lo] = polarToLatLon(cx, cy);
+      return surfacePoint(la, lo, sy.sampler.elevation(la, lo, 80) * exaggeration, 0.08);
+    });
+    const col = hoverCell.status === 2 ? '#009E73' : hoverCell.status === 1 ? '#E69F00' : '#56B4E9';
+    hoverCellGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.9 })));
+  }, [hoverCell, exaggeration, hoverCellGroup, screen]);
+
   const flyTo = useApp((s) => s.flyTo);
   useEffect(() => {
     if (flyTo && sys.current) sys.current.rig.flyTo(flyTo.lat, flyTo.lon, flyTo.rangeKm, sys.current.rig.heading, Math.min(sys.current.rig.tilt, 50));
   }, [flyTo]);
 
   useEffect(() => {
-    scene.add(furniture, markers, vectors);
+    scene.add(furniture, markers, hoverCellGroup, vectors);
     return () => {
-      scene.remove(furniture, markers, vectors);
+      scene.remove(furniture, markers, hoverCellGroup, vectors);
     };
-  }, [scene, furniture, markers, vectors]);
+  }, [scene, furniture, markers, hoverCellGroup, vectors]);
 
   useFrame((_, dt) => {
     const sy = sys.current;
@@ -521,7 +574,7 @@ gl_FragColor = vec4(col*(0.03+1.1*d), 1.0); }`,
       sy.mat.uniforms.uFocusRect.value.w = 0;
     }
     const now = performance.now();
-    if (s.globe.shadows && (s.epoch !== lb.epoch || !lb.globalReady || lb.force) && now - lb.t > 110) {
+    if (s.globe.shadows && (s.view === '3d' || s.screen === 'menu') && (s.epoch !== lb.epoch || !lb.globalReady || lb.force) && now - lb.t > 110) {
       lb.n++;
       const playing = s.playing;
       const ms = sy.baker.bake(normalize(geo.sun), geo.earth, { global: !playing || lb.n % 3 === 0 || !lb.globalReady, polar: !playing || lb.n % 2 === 0 || lb.force, focus: true });

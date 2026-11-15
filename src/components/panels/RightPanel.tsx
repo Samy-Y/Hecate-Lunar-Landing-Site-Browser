@@ -5,9 +5,9 @@
  *   Compare   - pick 2-4 sites and compare them side by side, across launch slips
  *   Horizon   - 360 deg sky-plane panorama for the inspected site
  */
-import { useMemo, type ReactNode } from 'react';
-import { findNextWindow, runCompare, verifyWithHorizons } from '../../store/runtime';
-import { tLandOf, useApp, type RecapSort, type RightSection, type SiteSummary } from '../../store/useApp';
+import { useMemo, useState, type ReactNode } from 'react';
+import { findNextWindow, runCompare, runtime, verifyWithHorizons } from '../../store/runtime';
+import { tLandOf, useApp, type Pin, type RecapFeasFilter, type RecapSort, type RightSection, type Selection, type SiteSummary } from '../../store/useApp';
 import { fmtLat, fmtLon } from '../../lib/geo';
 import { fmt, HOUR_MS } from '../../lib/math';
 import { fmtHours, fmtUtc } from '../../lib/time';
@@ -17,7 +17,7 @@ import { InfoTip } from '../common/InfoTip';
 import { Panorama } from './Panorama';
 import { Silhouettes } from './Silhouettes';
 import { PowerChart } from './PowerChart';
-import { tx } from '../common/Tx';
+import { Tx, tx } from '../common/Tx';
 
 const ITEMS: { id: RightSection; label: string; icon: ReactNode }[] = [
   { id: 'recap', label: 'Recap', icon: <Icon.list /> },
@@ -62,7 +62,26 @@ export function RightPanel() {
 
 // ---------------------------------------------------------------- shared helpers
 const STATUS_RANK = { PASS: 0, UNKNOWN: 1, FAIL: 2 } as const;
-const SORTS: { id: RecapSort; label: string; key: (s: SiteSummary) => number; desc: boolean }[] = [
+
+interface RecapRow {
+  key: string;
+  sel: Selection;
+  pin: Pin | null;
+  nearCurated: string | null;
+  status: 'PASS' | 'UNKNOWN' | 'FAIL';
+  statusDetail: string;
+  suitability: number;
+  confidence: number;
+  dSunH: number;
+  dDarkH: number;
+  cEarth: number;
+  slope: number;
+  powerMeanW: number | null;
+  avail: number | null;
+  pendingCompare: boolean;
+}
+
+const SORTS: { id: RecapSort; label: string; key: (r: RecapRow) => number; desc: boolean }[] = [
   { id: 'feasibility', label: 'Feasibility', key: (s) => STATUS_RANK[s.status] * 1000 - s.suitability, desc: false },
   { id: 'suitability', label: 'Suitability', key: (s) => s.suitability, desc: true },
   { id: 'confidence', label: 'Data confidence', key: (s) => s.confidence, desc: true },
@@ -70,7 +89,7 @@ const SORTS: { id: RecapSort; label: string; key: (s: SiteSummary) => number; de
   { id: 'dDark', label: 'Max darkness', key: (s) => s.dDarkH, desc: false },
   { id: 'cEarth', label: 'DTE duty', key: (s) => s.cEarth, desc: true },
   { id: 'slope', label: 'Slope', key: (s) => s.slope, desc: false },
-  { id: 'power', label: 'Mean power', key: (s) => s.powerMeanW, desc: true },
+  { id: 'power', label: 'Mean power', key: (s) => s.powerMeanW ?? -1, desc: true },
 ];
 
 function selectPin(p: { x: number; y: number; lat: number; lon: number; siteId: string | null; name: string }, fly = true) {
@@ -83,21 +102,139 @@ function Recap() {
   const pins = useApp((s) => s.pins);
   const compare = useApp((s) => s.compare);
   const busy = useApp((s) => s.compareBusy);
+  const forward = useApp((s) => s.forward);
   const sort = useApp((s) => s.recapSort);
+  const filter = useApp((s) => s.recapFilter);
   const sel = useApp((s) => s.selection);
+  const lBase = useApp((s) => s.criteria.lBase);
+  const confMin = useApp((s) => s.criteria.confMin);
   const tLand = useApp((s) => tLandOf(s));
   const lonC = useApp((s) => s.lonConvention);
-  const rows = useMemo(() => {
+  const [limit, setLimit] = useState(60);
+
+  const allRows = useMemo<RecapRow[]>(() => {
+    const out: RecapRow[] = [];
+    const sites = runtime.data?.manifest.sites ?? [];
+    const nearSiteName = (x: number, y: number) => {
+      const s = sites.find((q) => Math.hypot(q.x - x, q.y - y) < 2500);
+      return s ? s.id : null;
+    };
+    const matchForward = (x: number, y: number) => forward?.passed.find((c) => Math.hypot(c.x - x, c.y - y) < 2400);
+
+    for (const p of pins) {
+      const c0 = compare?.find((r) => r.id === p.id)?.cols[0] ?? null;
+      const f = matchForward(p.x, p.y);
+      if (c0) {
+        out.push({
+          key: `pin-${p.id}`,
+          sel: { x: p.x, y: p.y, lat: p.lat, lon: p.lon, siteId: p.siteId, name: p.name },
+          pin: p,
+          nearCurated: p.siteId ? null : nearSiteName(p.x, p.y),
+          status: c0.status,
+          statusDetail: c0.statusDetail,
+          suitability: c0.suitability,
+          confidence: c0.confidence,
+          dSunH: c0.dSunH,
+          dDarkH: c0.dDarkH,
+          cEarth: c0.cEarth,
+          slope: c0.slope,
+          powerMeanW: c0.powerMeanW,
+          avail: f?.avail ?? null,
+          pendingCompare: false,
+        });
+      } else {
+        const regStatus = f ? (f.status === 2 ? 'PASS' : 'UNKNOWN') : 'UNKNOWN';
+        out.push({
+          key: `pin-${p.id}`,
+          sel: { x: p.x, y: p.y, lat: p.lat, lon: p.lon, siteId: p.siteId, name: p.name },
+          pin: p,
+          nearCurated: p.siteId ? null : nearSiteName(p.x, p.y),
+          status: regStatus,
+          statusDetail: f
+            ? (f.status === 2 ? 'Passed regional screen; evaluating 5 m terrain…' : `Screen-passed — computing 5 m slope at $L_{\\mathrm{base}}$…`)
+            : 'Computing full 5 m analysis…',
+          suitability: f?.suit ?? 0,
+          confidence: f?.conf ?? 0,
+          dSunH: f?.dSunH ?? 0,
+          dDarkH: f?.dDarkH ?? 0,
+          cEarth: f?.cEarth ?? 0,
+          slope: f?.slope ?? 0,
+          powerMeanW: null,
+          avail: f?.avail ?? null,
+          pendingCompare: true,
+        });
+      }
+    }
+
+    if (forward) {
+      forward.passed.forEach((cand, i) => {
+        const alreadyPinned = pins.some((p) => Math.hypot(p.x - cand.x, p.y - cand.y) < 1);
+        if (alreadyPinned) return;
+        const name = i < 12 ? `Candidate #${i + 1}` : `Cell r${cand.row}·c${cand.col}`;
+        const status: 'PASS' | 'UNKNOWN' = cand.status === 2 ? 'PASS' : 'UNKNOWN';
+        const statusDetail =
+          status === 'PASS'
+            ? 'Passed regional forward screen (80 m slope baseline)'
+            : forward.regionalDx > lBase
+              ? `Screen-passed — $L_{\\mathrm{base}} = ${lBase}\\,\\mathrm{m}$ footpad slope requires 5 m inspection`
+              : `LOW CONFIDENCE — $C_{\\mathrm{data}} = ${cand.conf.toFixed(0)} < ${confMin}$`;
+        out.push({
+          key: `cell-${cand.idx}`,
+          sel: { x: cand.x, y: cand.y, lat: cand.lat, lon: cand.lon, siteId: null, name },
+          pin: null,
+          nearCurated: nearSiteName(cand.x, cand.y),
+          status,
+          statusDetail,
+          suitability: cand.suit,
+          confidence: cand.conf,
+          dSunH: cand.dSunH,
+          dDarkH: cand.dDarkH,
+          cEarth: cand.cEarth,
+          slope: cand.slope,
+          powerMeanW: null,
+          avail: cand.avail,
+          pendingCompare: false,
+        });
+      });
+    }
+    return out;
+  }, [pins, compare, forward, lBase, confMin]);
+
+  const counts = useMemo(() => {
+    let pass = 0, unknown = 0, fail = 0;
+    for (const r of allRows) {
+      if (r.status === 'PASS') pass++;
+      else if (r.status === 'UNKNOWN') unknown++;
+      else fail++;
+    }
+    return { all: allRows.length, pass, unknown, fail };
+  }, [allRows]);
+
+  const filtered = useMemo(() => {
     const def = SORTS.find((s) => s.id === sort)!;
-    return pins
-      .map((p) => ({ p, s: compare?.find((r) => r.id === p.id)?.cols[0] ?? null }))
+    return allRows
+      .filter((r) => {
+        if (filter.selectedOnly && !r.pin) return false;
+        if (filter.feasibility !== 'all' && r.status !== filter.feasibility) return false;
+        if (r.confidence < filter.minConf) return false;
+        return true;
+      })
       .sort((a, b) => {
-        if (!a.s || !b.s) return a.s ? -1 : b.s ? 1 : 0;
-        const d = def.key(a.s) - def.key(b.s);
+        if (a.pendingCompare && !b.pendingCompare && !forward) return 1;
+        const d = def.key(a) - def.key(b);
         return def.desc ? -d : d;
       });
-  }, [pins, compare, sort]);
+  }, [allRows, filter, sort, forward]);
+
+  const shown = filtered.slice(0, limit);
   const selPinned = sel && pins.some((p) => Math.hypot(p.x - sel.x, p.y - sel.y) < 1);
+  const feasOpts: { id: RecapFeasFilter; label: string; n: number }[] = [
+    { id: 'all', label: 'All', n: counts.all },
+    { id: 'PASS', label: 'PASS', n: counts.pass },
+    { id: 'UNKNOWN', label: 'Screen / ?', n: counts.unknown },
+    { id: 'FAIL', label: 'FAIL', n: counts.fail },
+  ];
+
   return (
     <div className="sec-body" data-tour="recap">
       <div className="row gap wrap">
@@ -106,44 +243,127 @@ function Recap() {
           {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
         <span className="grow" />
+        {pins.length >= 2 && (
+          <button className="btn small primary" onClick={() => useApp.getState().set({ rightSection: 'compare' })}>
+            Compare ({pins.length}) →
+          </button>
+        )}
         <button className="btn small ghost" onClick={() => runCompare()} disabled={busy || !pins.length}>{busy ? 'Updating…' : 'Refresh'}</button>
       </div>
-      <p className="small muted">Landing {fmtUtc(tLand)} · {pins.length} selected site{pins.length === 1 ? '' : 's'}</p>
+
+      <div className="recap-filters">
+        <div className="seg wrap">
+          {feasOpts.map((o) => (
+            <button
+              key={o.id}
+              className={filter.feasibility === o.id ? 'on' : ''}
+              onClick={() => useApp.getState().setRecapFilter({ feasibility: o.id })}
+            >
+              {o.label} <span className="muted">({o.n})</span>
+            </button>
+          ))}
+        </div>
+        <div className="row gap wrap">
+          <button
+            className={`btn small${filter.selectedOnly ? ' on' : ' ghost'}`}
+            onClick={() => useApp.getState().setRecapFilter({ selectedOnly: !filter.selectedOnly })}
+          >
+            Selected only ({pins.length})
+          </button>
+          {pins.length > 0 && (
+            <button className="btn small ghost" onClick={() => useApp.getState().clearPins()} title="Clear all selected sites">
+              Clear selected
+            </button>
+          )}
+          <span className="grow" />
+          <label className="recap-conf-filter small">
+            <span><Tx>{`Min $C_{\\mathrm{data}} \\ge ${filter.minConf}$`}</Tx></span>
+            <input
+              type="range"
+              min={0}
+              max={95}
+              step={5}
+              value={filter.minConf}
+              onChange={(e) => useApp.getState().setRecapFilter({ minConf: Number(e.target.value) })}
+              aria-label="Minimum data confidence filter"
+            />
+          </label>
+        </div>
+      </div>
+
+      <p className="small muted">
+        Landing {fmtUtc(tLand)} · {filtered.length} matching ({forward ? `${forward.passed.length} forward-passed` : 'screening…'} · {pins.length} selected) · <kbd>Shift</kbd>+Click map or tick boxes to select for Compare
+      </p>
+
       {sel && !selPinned && (
-        <button className="btn small wide" onClick={() => useApp.getState().togglePin()}><Icon.plus /> Add “{sel.name}” to selected sites</button>
+        <button className="btn small wide" onClick={() => useApp.getState().togglePin()}><Icon.plus /> Select “{sel.name}” for Compare</button>
       )}
-      {!pins.length && (
+
+      {filtered.length === 0 && (
         <div className="empty small">
           <Icon.list />
-          <p>No sites selected yet. Inspect a site (click the map, a curated site or a forward-search candidate) and press <kbd>P</kbd> or <b>＋</b> to add it. Recap ranks all selected sites; Compare puts them side by side.</p>
+          <p>
+            {allRows.length === 0
+              ? 'No regional cells passed the current criteria. Relax sun/darkness/slope thresholds or Shift+click sites directly on the map.'
+              : 'No sites match the active Feasibility / Confidence filters.'}
+          </p>
         </div>
       )}
+
       <ol className="recap-list">
-        {rows.map(({ p, s }, i) => (
-          <li key={p.id} className={sel && Math.hypot(p.x - sel.x, p.y - sel.y) < 1 ? 'cur' : ''} style={{ ['--pin' as string]: p.color }}>
-            <button className="recap-main" onClick={() => { selectPin(p); useApp.getState().set({ rightSection: 'adequacy' }); }}>
-              <span className="rank">{i + 1}</span>
-              <span className="recap-name">
-                <b>{p.name}</b>
-                <span className="mono small muted">{fmtLat(p.lat, 2)} {fmtLon(p.lon, lonC, 1)}</span>
-              </span>
-              {s ? <StatusBadge status={s.status} label={s.status === 'UNKNOWN' ? '?' : s.status} /> : <span className="spinner" />}
-            </button>
-            {s && (
+        {shown.map((r, i) => {
+          const isCurrent = !!sel && Math.hypot(r.sel.x - sel.x, r.sel.y - sel.y) < 1;
+          return (
+            <li
+              key={r.key}
+              className={`${isCurrent ? 'cur' : ''}${r.pin ? ' pinned' : ''}`}
+              style={r.pin ? { ['--pin' as string]: r.pin.color } : undefined}
+            >
+              <button
+                type="button"
+                className={`recap-check${r.pin ? ' on' : ''}`}
+                onClick={() => useApp.getState().togglePin(r.sel)}
+                title={r.pin ? 'Remove from Compare selection' : 'Select for Compare (same as Shift+Click on map)'}
+                aria-pressed={!!r.pin}
+                aria-label={r.pin ? `Deselect ${r.sel.name}` : `Select ${r.sel.name}`}
+              >
+                {r.pin ? <Icon.check /> : <Icon.plus />}
+              </button>
+              <button
+                type="button"
+                className="recap-main"
+                onClick={() => { selectPin(r.sel); useApp.getState().set({ rightSection: 'adequacy' }); }}
+                title="Inspect site in Adequacy"
+              >
+                <span className="rank">{i + 1}</span>
+                <span className="recap-name">
+                  <b>{r.sel.name}{r.nearCurated && <em className="recap-tag">{r.nearCurated}</em>}</b>
+                  <span className="mono small muted">{fmtLat(r.sel.lat, 2)} {fmtLon(r.sel.lon, lonC, 1)}</span>
+                </span>
+                {r.pendingCompare ? <span className="spinner" /> : <StatusBadge status={r.status} label={r.status === 'UNKNOWN' ? '?' : r.status} />}
+              </button>
               <div className="recap-metrics mono small">
-                <span title="Suitability">S {fmt(s.suitability, 0)}</span>
-                <span title="Data confidence">C {fmt(s.confidence, 0)}</span>
-                <span title="Continuous sunlight">☀ {fmtHours(s.dSunH)}</span>
-                <span title="DTE duty">⊕ {fmt(s.cEarth, 0)} %</span>
-                <span title="Slope">α {fmt(s.slope, 1)}°</span>
-                <span title="Mean solar power">⚡ {fmt(s.powerMeanW, 0)} W</span>
+                <span title="Suitability"><Tx>$S$</Tx> {fmt(r.suitability, 0)}</span>
+                <span title="Data confidence"><Tx>$C$</Tx> {fmt(r.confidence, 0)}</span>
+                <span title="Continuous sunlight">☀ {fmtHours(r.dSunH)}</span>
+                <span title="DTE duty">⊕ {fmt(r.cEarth, 0)} %</span>
+                <span title="Slope"><Tx>$\alpha$</Tx> {fmt(r.slope, 1)}°</span>
+                {r.powerMeanW !== null ? (
+                  <span title="Mean solar power">⚡ {fmt(r.powerMeanW, 0)} W</span>
+                ) : r.avail !== null ? (
+                  <span title="Slip availability">avail {fmt(r.avail, 0)} %</span>
+                ) : null}
               </div>
-            )}
-            {s && s.status !== 'PASS' && <span className="recap-why small">{tx(s.statusDetail)}</span>}
-            <button className="icon-btn small recap-x" onClick={() => useApp.getState().removePin(p.id)} aria-label={`Remove ${p.name}`}><Icon.close /></button>
-          </li>
-        ))}
+              {r.status !== 'PASS' && <span className="recap-why small">{tx(r.statusDetail)}</span>}
+            </li>
+          );
+        })}
       </ol>
+      {filtered.length > shown.length && (
+        <button className="btn small wide ghost" onClick={() => setLimit((n) => n + 80)}>
+          Show more ({filtered.length - shown.length} remaining)
+        </button>
+      )}
     </div>
   );
 }
@@ -207,7 +427,7 @@ function Adequacy() {
         <div className="badges-row">
           <span className={`lvl ${current.terrain.level}`}>{current.terrain.source}</span>
           {!current.terrain.lBaseResolved && <span className="lvl warn">{current.terrain.level === '5m' ? '' : '5 m DEM unavailable here — '}slope at {Math.round(current.terrain.slopeBaselineM)} m</span>}
-          <span className="lvl">measured {fmt(current.terrain.directFrac * 100, 0)} % · σ<sub>z</sub> {fmt(current.terrain.sigmaZ, 1)} m</span>
+          <span className="lvl">{tx(`measured ${fmt(current.terrain.directFrac * 100, 0)} % · $\\sigma_z = ${fmt(current.terrain.sigmaZ, 1)}$ m`)}</span>
         </div>
       )}
       {err && <div className="error">Engine error: {err}</div>}
@@ -265,10 +485,10 @@ function AssessmentCard() {
         </div>
       </div>
       <div className="metrics">
-        <div><InfoTip id="dSun">D_sun</InfoTip><b className="mono">{fmtHours(a.metrics.dSunH)}</b></div>
-        <div><InfoTip id="dDark">D_dark</InfoTip><b className="mono">{fmtHours(a.metrics.dDarkH)}</b></div>
-        <div><InfoTip id="dte">C_earth</InfoTip><b className="mono">{fmt(a.metrics.cEarth, 1)} %</b></div>
-        <div><InfoTip id="power"><span className="ovl">P</span></InfoTip><b className="mono">{fmt(a.power.meanW, 0)} W</b></div>
+        <div><InfoTip id="dSun">{tx('$D_{\\mathrm{sun}}$')}</InfoTip><b className="mono">{fmtHours(a.metrics.dSunH)}</b></div>
+        <div><InfoTip id="dDark">{tx('$D_{\\mathrm{dark}}$')}</InfoTip><b className="mono">{fmtHours(a.metrics.dDarkH)}</b></div>
+        <div><InfoTip id="dte">{tx('$C_{\\mathrm{earth}}$')}</InfoTip><b className="mono">{fmt(a.metrics.cEarth, 1)} %</b></div>
+        <div><InfoTip id="power">{tx('$\\bar{P}$')}</InfoTip><b className="mono">{fmt(a.power.meanW, 0)} W</b></div>
       </div>
     </section>
   );
@@ -296,9 +516,9 @@ function ChecksBlock() {
         <tbody>
           {(['sun', 'comm', 'slope', 'tri', 'psr'] as const).map((k) => (
             <tr key={k}>
-              <td>u<sub>{k}</sub></td>
+              <td>{tx(`$u_{\\mathrm{${k}}}$`)}</td>
               <td className="mono">{fmt(a.assessment.utilities[k] as number | null, 3)}</td>
-              <td className="mono">w<sub>{k}</sub> = {fmt(a.assessment.weights[k], 2)}</td>
+              <td className="mono">{tx(`$w_{\\mathrm{${k}}} = ${fmt(a.assessment.weights[k], 2)}$`)}</td>
               <td><Meter value={(a.assessment.utilities[k] ?? 0) * 100} /></td>
             </tr>
           ))}
@@ -317,9 +537,9 @@ function SlipBlock() {
   const events = a.timeline.events.filter((e) => e.t >= tLand && e.t <= tLand + crit.missionH * HOUR_MS);
   return (
     <div>
-      <p className="small">Landing <b className="mono">{fmtUtc(tLand)}</b> ({slipOffsetH === 0 ? 'nominal t₀' : `t₀ ${slipOffsetH > 0 ? '+' : '−'}${fmtHours(Math.abs(slipOffsetH))}`})</p>
+      <p className="small">Landing <b className="mono">{fmtUtc(tLand)}</b> ({slipOffsetH === 0 ? tx('nominal $t_0$') : tx(`$t_0 ${slipOffsetH > 0 ? '+' : '-'} ${fmtHours(Math.abs(slipOffsetH))}$`)})</p>
       <table className="checks">
-        <thead><tr><th>Landing</th><th>D<sub>sun</sub></th><th>D<sub>dark</sub></th><th>C<sub>earth</sub></th><th>Status</th></tr></thead>
+        <thead><tr><th>Landing</th><th>{tx('$D_{\\mathrm{sun}}$')}</th><th>{tx('$D_{\\mathrm{dark}}$')}</th><th>{tx('$C_{\\mathrm{earth}}$')}</th><th>Status</th></tr></thead>
         <tbody>
           {a.slipTable.map((r) => (
             <tr key={r.label} className={Math.abs(r.offsetH - slipOffsetH) < 1e-6 ? 'cur' : ''} onClick={() => useApp.getState().setSlipOffset(r.offsetH)} style={{ cursor: 'pointer' }}>
@@ -332,7 +552,7 @@ function SlipBlock() {
           ))}
         </tbody>
       </table>
-      <h4>Viable windows inside ±{fmtHours(crit.slipH)}</h4>
+      <h4>{tx(`Viable windows inside $\\pm$${fmtHours(crit.slipH)}`)}</h4>
       {a.slip.windows.length === 0 ? (
         <p className="small muted">{a.terrainOk ? 'No landing epoch inside the slip window satisfies the temporal gates.' : 'Terrain constraints fail — no epoch can make this site feasible.'}</p>
       ) : (
@@ -356,7 +576,7 @@ function SlipBlock() {
         {events.slice(0, 40).map((e, i) => (
           <li key={i} className={e.kind}>
             <span className="mono">{fmtUtc(e.t, true)}</span>
-            <span>{tx({ sunrise: '☀ Sun clears θ_min', sunset: '☀ Sun below θ_min', darkStart: '● darkness begins', darkEnd: '○ darkness ends', earthRise: '⊕ Earth rises (DTE)', earthSet: '⊕ Earth sets (DTE lost)' }[e.kind])}</span>
+            <span>{tx({ sunrise: '☀ Sun clears $\\theta_{\\min}$', sunset: '☀ Sun below $\\theta_{\\min}$', darkStart: '● darkness begins', darkEnd: '○ darkness ends', earthRise: '⊕ Earth rises (DTE)', earthSet: '⊕ Earth sets (DTE lost)' }[e.kind])}</span>
             <span className="muted small">{e.iterations} it</span>
           </li>
         ))}
@@ -376,7 +596,7 @@ function DataBlock() {
           <tr><td>Terrain source</td><td className="mono">{t.source}</td></tr>
           <tr><td>Source grid spacing</td><td className="mono">{t.sourceSpacingM} m</td></tr>
           <tr><td>Effective resolution</td><td className="mono">{t.effectiveResM != null ? `~${fmt(t.effectiveResM, 0)} m` : '—'}</td></tr>
-          <tr><td>Slope baseline used</td><td className="mono">{Math.round(t.slopeBaselineM)} m{t.lBaseResolved ? '' : <> (L<sub>base</sub> unresolved)</>}</td></tr>
+          <tr><td>Slope baseline used</td><td className="mono">{Math.round(t.slopeBaselineM)} m{t.lBaseResolved ? '' : <> ({tx('$L_{\\mathrm{base}}$')} unresolved)</>}</td></tr>
           <tr><td>Footprint cells</td><td className="mono">{t.footprintCells}</td></tr>
           <tr><td><InfoTip id="tri">TRI</InfoTip></td><td className="mono">{t.tri === null ? 'n/a (no 5 m DEM)' : `${fmt(t.tri, 3)} m`}</td></tr>
           <tr><td><InfoTip id="cpr">Mini-RF CPR</InfoTip></td><td className="mono">{fmt(t.cpr, 3)}</td></tr>
@@ -384,9 +604,9 @@ function DataBlock() {
           <tr><td>Average Sun visibility (PGDA)</td><td className="mono">{fmt(t.sunfracPct, 0)} %</td></tr>
           <tr><td>LOLA shot density</td><td className="mono">{fmt(t.shotDensity, 0)} /km²</td></tr>
           <tr><td>Measured (shot) cells / interpolated</td><td className="mono">{fmt(t.directFrac * 100, 0)} % / {fmt(t.fInterp * 100, 0)} %</td></tr>
-          <tr><td>Vertical uncertainty σ<sub>z</sub></td><td className="mono">{fmt(t.sigmaZ, 2)} m ({t.sigmaSource})</td></tr>
-          <tr><td>q<sub>source</sub></td><td className="mono">{fmt(t.qSource, 3)}</td></tr>
-          <tr><td>σ<sub>h,max</sub> (horizon)</td><td className="mono">{fmt(t.sigmaHMax, 3)}°</td></tr>
+          <tr><td>{tx('Vertical uncertainty $\\sigma_z$')}</td><td className="mono">{fmt(t.sigmaZ, 2)} m ({t.sigmaSource})</td></tr>
+          <tr><td>{tx('$q_{\\mathrm{source}}$')}</td><td className="mono">{fmt(t.qSource, 3)}</td></tr>
+          <tr><td>{tx('$\\sigma_{h,\\max}$ (horizon)')}</td><td className="mono">{fmt(t.sigmaHMax, 3)}°</td></tr>
         </tbody>
       </table>
       {t.notes.length > 0 && <ul className="notes">{t.notes.map((n, i) => <li key={i}>{tx(n)}</li>)}</ul>}
@@ -412,11 +632,11 @@ const PARAMS: { label: string; tip?: string; get: (s: SiteSummary) => string; be
   { label: 'Feasibility', tip: 'feasibility', get: (s) => s.status },
   { label: 'Suitability', tip: 'suitability', get: (s) => fmt(s.suitability, 0), val: (s) => s.suitability, best: (v) => Math.max(...v) },
   { label: 'Data confidence', tip: 'confidence', get: (s) => fmt(s.confidence, 0), val: (s) => s.confidence, best: (v) => Math.max(...v) },
-  { label: 'D_sun', tip: 'dSun', get: (s) => fmtHours(s.dSunH), val: (s) => s.dSunH, best: (v) => Math.max(...v) },
-  { label: 'D_dark', tip: 'dDark', get: (s) => fmtHours(s.dDarkH), val: (s) => s.dDarkH, best: (v) => Math.min(...v) },
-  { label: 'C_earth', tip: 'dte', get: (s) => `${fmt(s.cEarth, 0)} %`, val: (s) => s.cEarth, best: (v) => Math.max(...v) },
-  { label: 'Slope α', tip: 'slope', get: (s) => `${fmt(s.slope, 1)}°`, val: (s) => s.slope, best: (v) => Math.min(...v) },
-  { label: 'Mean power', tip: 'power', get: (s) => `${fmt(s.powerMeanW, 0)} W`, val: (s) => s.powerMeanW, best: (v) => Math.max(...v) },
+  { label: '$D_{\\mathrm{sun}}$', tip: 'dSun', get: (s) => fmtHours(s.dSunH), val: (s) => s.dSunH, best: (v) => Math.max(...v) },
+  { label: '$D_{\\mathrm{dark}}$', tip: 'dDark', get: (s) => fmtHours(s.dDarkH), val: (s) => s.dDarkH, best: (v) => Math.min(...v) },
+  { label: '$C_{\\mathrm{earth}}$', tip: 'dte', get: (s) => `${fmt(s.cEarth, 0)} %`, val: (s) => s.cEarth, best: (v) => Math.max(...v) },
+  { label: 'Slope $\\alpha$', tip: 'slope', get: (s) => `${fmt(s.slope, 1)}°`, val: (s) => s.slope, best: (v) => Math.min(...v) },
+  { label: 'Mean power $\\bar{P}$', tip: 'power', get: (s) => `${fmt(s.powerMeanW, 0)} W`, val: (s) => s.powerMeanW, best: (v) => Math.max(...v) },
   { label: 'Energy / mission', get: (s) => `${fmt(s.energyKWh, 0)} kWh`, val: (s) => s.energyKWh, best: (v) => Math.max(...v) },
   { label: 'Elevation', get: (s) => `${fmt(s.elev, 0)} m` },
   { label: 'Terrain data', get: (s) => s.level },
@@ -443,7 +663,7 @@ function Compare() {
   const chosen = pins.filter((p) => ids.includes(p.id));
   const toggle = (id: string) => {
     const cur = useApp.getState().compareIds;
-    useApp.getState().set({ compareIds: cur.includes(id) ? cur.filter((i) => i !== id) : [...cur, id].slice(-4) });
+    useApp.getState().set({ compareIds: cur.includes(id) ? cur.filter((i) => i !== id) : [...cur, id].slice(-6) });
   };
   const exportJson = () => {
     const out = {
@@ -467,12 +687,13 @@ function Compare() {
     return (
       <div className="empty small">
         <Icon.columns />
-        <p>Select at least two sites (<kbd>P</kbd> or <b>＋</b>) to compare them side by side. {pins.length === 1 ? 'One site selected so far.' : ''}</p>
+        <p>Select at least two sites in <b>Recap</b>, with <kbd>Shift</kbd>+click on the map, or <kbd>P</kbd> / <b>＋</b> to compare them side by side. {pins.length === 1 ? 'One site selected so far.' : ''}</p>
+        <button className="btn small" onClick={() => useApp.getState().set({ rightSection: 'recap' })}>Open Recap</button>
       </div>
     );
   return (
     <div className="sec-body" data-tour="compare">
-      <span className="field-label">Sites to compare (up to 4)</span>
+      <span className="field-label">Sites to compare (up to 6)</span>
       <div className="chip-pick">
         {pins.map((p) => (
           <label key={p.id} className={`chip-opt${ids.includes(p.id) ? ' on' : ''}`} style={{ ['--pin' as string]: p.color }}>
@@ -565,7 +786,7 @@ function HorizonSection() {
           <div className="now sun">
             <span>Sun now</span>
             <b className="mono">az {fmt(series.sunAz[i], 1)}° · el {fmt(series.sunEl[i], 2)}°</b>
-            <span className="mono small">h<sub>mask</sub> {fmt(series.sunH[i], 2)}° · disk {fmt(series.sunF[i] * 100, 0)} %</span>
+            <span className="mono small">{tx(`$h_{\\mathrm{mask}} = ${fmt(series.sunH[i], 2)}^\\circ$ · disk $${fmt(series.sunF[i] * 100, 0)}\\,\\%$`)}</span>
           </div>
           <div className="now earth">
             <span>Earth now</span>
@@ -574,7 +795,7 @@ function HorizonSection() {
           </div>
         </div>
       )}
-      <p className="small muted">Horizon: {a.profile.n} azimuth samples ({(360 / a.profile.n).toFixed(2)}°) · {a.profile.source} · σ<sub>h,max</sub> {fmt(a.terrain.sigmaHMax, 3)}°</p>
+      <p className="small muted">{tx(`Horizon: ${a.profile.n} azimuth samples (${(360 / a.profile.n).toFixed(2)}°) · ${a.profile.source} · $\\sigma_{h,\\max} = ${fmt(a.terrain.sigmaHMax, 3)}^\\circ$`)}</p>
     </div>
   );
 }

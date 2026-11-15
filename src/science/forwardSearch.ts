@@ -98,13 +98,20 @@ function runFrom(a: Int16Array, base: number, hours: number, s: number, thr: num
 
 export interface Candidate {
   idx: number;
+  row: number;
+  col: number;
   x: number;
   y: number;
   lat: number;
   lon: number;
+  status: 1 | 2;
   suit: number;
   conf: number;
   avail: number;
+  dSunH: number;
+  dDarkH: number;
+  cEarth: number;
+  slope: number;
 }
 
 export interface ForwardResult {
@@ -117,7 +124,10 @@ export interface ForwardResult {
   dDark: Float32Array;
   cEarth: Float32Array;
   fail: Uint8Array;
+  /** Top 12 screen-passed / passing candidates for quick map markers and sidebar preview. */
   top: Candidate[];
+  /** ALL screen-passed / passing cells (status 1 or 2) for full Recap inspection, filtering & selection. */
+  passed: Candidate[];
   counts: { cells: number; fail: number; candidates: number; pass: number; byReason: Record<keyof typeof FAIL_BITS, number> };
   ms: { geometry: number; thresholds: number };
   cached: boolean;
@@ -249,16 +259,23 @@ export function forwardSearch(d: RegionalData, c: Criteria, tLand: number, progr
 
   const order: number[] = [];
   for (let i = 0; i < NN; i++) if (status[i] === 1 || status[i] === 2) order.push(i);
-  order.sort((a, b) => suit[b] - suit[a] || conf[b] - conf[a]);
-  const top: Candidate[] = order.slice(0, 12).map((idx) => {
+  order.sort((a, b) => status[b] - status[a] || suit[b] - suit[a] || conf[b] - conf[a]);
+  const passed: Candidate[] = order.map((idx) => {
     const row = Math.floor(idx / n), col = idx % n;
     const x = g.x0 + (col + 0.5) * g.dx_m, y = g.y0 - (row + 0.5) * g.dx_m;
     const [lat, lon] = polarToLatLon(x, y);
-    return { idx, x, y, lat, lon, suit: suit[idx], conf: conf[idx], avail: avail[idx] };
+    return {
+      idx, row, col, x, y, lat, lon,
+      status: status[idx] as 1 | 2,
+      suit: suit[idx], conf: conf[idx], avail: avail[idx],
+      dSunH: dSunA[idx], dDarkH: dDarkA[idx], cEarth: cEarthA[idx],
+      slope: d.slope.sample(x, y),
+    };
   });
+  const top = passed.slice(0, 12);
 
   return {
-    n, status, suit, conf, avail, dSun: dSunA, dDark: dDarkA, cEarth: cEarthA, fail, top,
+    n, status, suit, conf, avail, dSun: dSunA, dDark: dDarkA, cEarth: cEarthA, fail, top, passed,
     counts: { cells: geo.cells.length, fail: nFail, candidates: nCand, pass: nPass, byReason },
     ms: { geometry: hadCache ? 0 : t1 - t0, thresholds: performance.now() - t1 },
     cached: hadCache, lBase: c.lBase, regionalDx, tLand,

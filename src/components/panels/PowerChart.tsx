@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { useApp } from '../../store/useApp';
 import { fmt } from '../../lib/math';
 import { fmtUtc } from '../../lib/time';
+import { tx } from '../common/Tx';
 
 const W = 420, H = 175, ML = 44, MR = 14, MT = 16, MB = 26;
 
@@ -39,8 +40,8 @@ export function PowerChart() {
       <div className="power-spec">
         <span className="power-spec-title">Array configuration</span>
         <div className="kv">
-          <span>Area / efficiency</span><b className="mono">{p.areaM2} m² · η {fmt(p.efficiency * 100, 1)} %</b>
-          <span>Inclination / orientation</span><b className="mono">β {p.tiltDeg}° · {p.azMode === 'track' ? 'Sun-tracking' : `fixed ${p.azDeg}°`}</b>
+          <span>Area / efficiency</span><b className="mono">{tx(`${p.areaM2} $\\mathrm{m}^2$ · $\\eta = ${fmt(p.efficiency * 100, 1)}$ %`)}</b>
+          <span>Inclination / orientation</span><b className="mono">{tx(`$\\beta = ${p.tiltDeg}^\\circ$ · ${p.azMode === 'track' ? 'Sun-tracking' : `fixed $${p.azDeg}^\\circ$`}`)}</b>
           <span>System losses</span><b className="mono">{p.lossesPct} %</b>
         </div>
       </div>
@@ -61,7 +62,7 @@ export function PowerChart() {
           <text x={W - MR} y={H - 7} className="axis end">{fmtUtc(pw.t[pw.t.length - 1]).slice(5, 16)}</text>
         </svg>
       )}
-      <p className="small muted">P(t) = S·A·η·(1−L)·f<sub>sun</sub>·max(0, cos i); S = 1361 W/m² × (1 AU / r)². Zero when the terrain hides the solar disk. Configure the array in the left panel → Power.</p>
+      <p className="small muted">{tx('$P(t) = S \\cdot A \\cdot \\eta \\cdot (1 - L) \\cdot f_{\\mathrm{sun}} \\cdot \\max(0, \\cos i)$; $S = 1361\\,\\mathrm{W/m}^2 \\times (1\\,\\mathrm{AU} / r)^2$. Zero when the terrain hides the solar disk. Configure the array in the left panel → Power.')}</p>
     </div>
   );
 }

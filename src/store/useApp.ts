@@ -18,6 +18,13 @@ export type Screen = 'menu' | 'workbench';
 export type LeftSection = 'mission' | 'time' | 'sun' | 'comm' | 'terrain' | 'science' | 'power' | 'search' | 'sites';
 export type RightSection = 'recap' | 'adequacy' | 'compare' | 'horizon';
 export type RecapSort = 'feasibility' | 'suitability' | 'confidence' | 'dSun' | 'dDark' | 'cEarth' | 'slope' | 'power';
+export type RecapFeasFilter = 'all' | 'PASS' | 'UNKNOWN' | 'FAIL';
+
+export interface RecapFilter {
+  feasibility: RecapFeasFilter;
+  minConf: number;
+  selectedOnly: boolean;
+}
 
 export type LayerId =
   | 'none' | 'illum' | 'elevation' | 'slope' | 'psr' | 'sunfrac' | 'psrdist' | 'cpr' | 'confidence' | 'effres' | 'sigma'
@@ -124,11 +131,19 @@ export interface AppState {
   followPlayhead: boolean;
 
   selection: Selection | null;
-  hover: { lat: number; lon: number; elev: number | null } | null;
+  hover: {
+    lat: number;
+    lon: number;
+    elev: number | null;
+    cell?: { row: number; col: number; x: number; y: number; dx: number; status: number; passedRank: number | null };
+    label?: string;
+  } | null;
+  snapToCells: boolean;
   /** Multi-site selection ("selected sites"). */
   pins: Pin[];
   compareIds: string[];
   recapSort: RecapSort;
+  recapFilter: RecapFilter;
   compare: CompareRow[] | null;
   compareBusy: boolean;
 
@@ -182,8 +197,11 @@ export interface AppState {
   stepEpoch: (hours: number) => void;
   setSlipOffset: (h: number) => void;
   select: (s: Selection | null) => void;
+  pickMapSite: (s: Selection, multi?: boolean) => void;
   togglePin: (s?: Selection | null) => void;
   removePin: (id: string) => void;
+  clearPins: () => void;
+  setRecapFilter: (p: Partial<RecapFilter>) => void;
   setGlobe: (p: Partial<AppState['globe']>) => void;
   requestFlyTo: (lat: number, lon: number, rangeKm: number) => void;
   nav: (c: NavCommand) => void;
@@ -199,11 +217,13 @@ function loadPrefs(): Partial<AppState> {
     const raw = localStorage.getItem('hecate.prefs');
     if (!raw) return {};
     const p = JSON.parse(raw);
+    const pins: Pin[] = Array.isArray(p.pins) ? p.pins : [];
     return {
       theme: p.theme === 'light' ? 'light' : 'dark',
       tier: p.tier === 'advanced' ? 'advanced' : 'beginner',
       lonConvention: p.lonConvention === '180' ? '180' : '360',
-      pins: Array.isArray(p.pins) ? p.pins : [],
+      pins,
+      compareIds: pins.slice(0, 6).map((q) => q.id),
       playSpeed: typeof p.playSpeed === 'number' ? p.playSpeed : 6,
     };
   } catch {
@@ -244,9 +264,11 @@ export const useApp = create<AppState>((set, get) => ({
 
   selection: null,
   hover: null,
+  snapToCells: true,
   pins: [],
   compareIds: [],
   recapSort: 'feasibility',
+  recapFilter: { feasibility: 'all', minConf: 0, selectedOnly: false },
   compare: null,
   compareBusy: false,
 
@@ -303,6 +325,14 @@ export const useApp = create<AppState>((set, get) => ({
   stepEpoch: (h) => get().setEpoch(get().epoch + h * HOUR_MS),
   setSlipOffset: (h) => set((s) => ({ slipOffsetH: h, epoch: s.criteria.t0 + h * HOUR_MS })),
   select: (sel) => set((s) => ({ selection: sel, nextWindow: null, rightSection: sel && s.rightSection === null ? 'adequacy' : s.rightSection })),
+  pickMapSite: (sel, multi = false) => {
+    if (multi) {
+      get().togglePin(sel);
+      set((s) => ({ selection: sel, nextWindow: null, rightSection: s.rightSection ?? 'recap' }));
+    } else {
+      get().select(sel);
+    }
+  },
   togglePin: (s0) => {
     const s = s0 ?? get().selection;
     if (!s) return;
@@ -313,16 +343,19 @@ export const useApp = create<AppState>((set, get) => ({
       get().notify(`Removed ${existing.name} from selected sites`);
       return;
     }
-    if (pins.length >= 8) {
-      get().notify('Up to 8 sites can be selected — remove one first');
+    if (pins.length >= 24) {
+      get().notify('Up to 24 sites can be selected for comparison — remove one first', { icon: 'warn' });
       return;
     }
-    const color = PIN_COLORS.find((c) => !pins.some((p) => p.color === c)) ?? PIN_COLORS[0];
+    const color = PIN_COLORS[pins.length % PIN_COLORS.length];
     const pin: Pin = { ...s, id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, color, addedAt: Date.now() };
-    set({ pins: [...pins, pin], compareIds: [...get().compareIds, pin.id].slice(-4) });
-    get().notify(`Added ${s.name} to selected sites`);
+    const nextCompare = [...get().compareIds, pin.id].slice(-6);
+    set({ pins: [...pins, pin], compareIds: nextCompare });
+    get().notify(`Added ${s.name} to Recap & Compare (${pins.length + 1} selected)`);
   },
   removePin: (id) => set((s) => ({ pins: s.pins.filter((p) => p.id !== id), compareIds: s.compareIds.filter((i) => i !== id) })),
+  clearPins: () => set({ pins: [], compareIds: [], compare: null }),
+  setRecapFilter: (p) => set((s) => ({ recapFilter: { ...s.recapFilter, ...p } })),
   setGlobe: (p) => set((s) => ({ globe: { ...s.globe, ...p } })),
   requestFlyTo: (lat, lon, rangeKm) => set((s) => ({ flyTo: { lat, lon, rangeKm, key: (s.flyTo?.key ?? 0) + 1 } })),
   nav: (c) => set((s) => ({ navCommand: c, navSeq: s.navSeq + 1 })),

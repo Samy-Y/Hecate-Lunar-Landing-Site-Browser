@@ -79,18 +79,18 @@ export function assess(c: Criteria, t: TerrainEval, m: MissionMetrics, power?: {
     checks.push({ key, label, value, limit, pass, hard, terrain });
 
   if (c.ellipseR > 0 && t.footprintCells > 1) {
-    add('slope', `Slope α(${t.slopeBaselineM} m), ≥95 % of R_ellipse`, `${fmt(t.slopePassFrac * 100, 0)} % pass · p95 ${fmt(t.slopeP95)}°`, `α ≤ ${c.slopeMax}°`, t.slopePassFrac >= 0.95, true, true);
+    add('slope', `Slope $\\alpha(${t.slopeBaselineM}\\,\\mathrm{m})$, $\\ge 95\\%$ of $R_{\\mathrm{ellipse}}$`, `${fmt(t.slopePassFrac * 100, 0)} % pass · $p_{95} = ${fmt(t.slopeP95)}^\\circ$`, `$\\alpha \\le ${c.slopeMax}^\\circ$`, t.slopePassFrac >= 0.95, true, true);
   } else {
-    add('slope', `Slope α(${Math.round(t.slopeBaselineM)} m)`, `${fmt(t.slopeCenter)}°`, `≤ ${c.slopeMax}°`, t.slopeCenter <= c.slopeMax, true, true);
+    add('slope', `Slope $\\alpha(${Math.round(t.slopeBaselineM)}\\,\\mathrm{m})$`, `${fmt(t.slopeCenter)}°`, `$\\le ${c.slopeMax}^\\circ$`, t.slopeCenter <= c.slopeMax, true, true);
   }
-  add('dsun', 'Continuous insolation D_sun', `${fmt(m.dSunH)} h`, `≥ ${c.dSunMinH} h`, m.dSunH >= c.dSunMinH - 1e-6, true, false);
-  add('ddark', 'Max continuous darkness D_dark', `${fmt(m.dDarkH)} h`, `≤ ${c.dDarkMaxH} h`, m.dDarkH <= c.dDarkMaxH + 1e-6, true, false);
-  add('dte', 'Geometric DTE duty C_earth', `${fmt(m.cEarth)} %`, c.dteRequired ? `≥ ${c.cEarthMin} %` : 'not required', c.dteRequired ? m.cEarth >= c.cEarthMin - 1e-6 : null, c.dteRequired, false);
-  if (t.tri === null) add('tri', 'Terrain Ruggedness Index', 'n/a (no 5 m DEM here)', `≤ ${c.triMax} m`, null, c.triGate, true);
-  else add('tri', 'Terrain Ruggedness Index', `${fmt(t.tri, 2)} m${!c.triGate && t.tri > c.triMax ? ' (advisory)' : ''}`, `≤ ${c.triMax} m`, c.triGate ? t.tri <= c.triMax : null, c.triGate, true);
-  add('cpr', 'Mini-RF CPR indicator', `${fmt(t.cpr, 2)}${!c.cprGate && t.cpr > c.cprMax ? ' (advisory)' : ''}`, `≤ ${c.cprMax}`, c.cprGate ? t.cpr <= c.cprMax : null, c.cprGate, true);
-  add('psr', 'Distance to PSR d_PSR', `${fmt(t.dPsrKm, 2)} km`, c.psrFilter ? `≤ ${c.dPsrMax} km` : 'filter off', c.psrFilter ? t.dPsrKm <= c.dPsrMax : null, c.psrFilter, false);
-  if (power) add('power', 'Mean solar power P̄', `${fmt(power.meanW, 0)} W`, power.minMeanW > 0 ? `≥ ${power.minMeanW} W` : 'no requirement', power.minMeanW > 0 ? power.meanW >= power.minMeanW : null, power.minMeanW > 0, false);
+  add('dsun', 'Continuous insolation $D_{\\mathrm{sun}}$', `${fmt(m.dSunH)} h`, `$\\ge ${c.dSunMinH}\\,\\mathrm{h}$`, m.dSunH >= c.dSunMinH - 1e-6, true, false);
+  add('ddark', 'Max continuous darkness $D_{\\mathrm{dark}}$', `${fmt(m.dDarkH)} h`, `$\\le ${c.dDarkMaxH}\\,\\mathrm{h}$`, m.dDarkH <= c.dDarkMaxH + 1e-6, true, false);
+  add('dte', 'Geometric DTE duty $C_{\\mathrm{earth}}$', `${fmt(m.cEarth)} %`, c.dteRequired ? `$\\ge ${c.cEarthMin}\\%$` : 'not required', c.dteRequired ? m.cEarth >= c.cEarthMin - 1e-6 : null, c.dteRequired, false);
+  if (t.tri === null) add('tri', 'Terrain Ruggedness Index', 'n/a (no 5 m DEM here)', `$\\le ${c.triMax}\\,\\mathrm{m}$`, null, c.triGate, true);
+  else add('tri', 'Terrain Ruggedness Index', `${fmt(t.tri, 2)} m${!c.triGate && t.tri > c.triMax ? ' (advisory)' : ''}`, `$\\le ${c.triMax}\\,\\mathrm{m}$`, c.triGate ? t.tri <= c.triMax : null, c.triGate, true);
+  add('cpr', 'Mini-RF CPR indicator', `${fmt(t.cpr, 2)}${!c.cprGate && t.cpr > c.cprMax ? ' (advisory)' : ''}`, `$\\le ${c.cprMax}$`, c.cprGate ? t.cpr <= c.cprMax : null, c.cprGate, true);
+  add('psr', 'Distance to PSR $d_{\\mathrm{PSR}}$', `${fmt(t.dPsrKm, 2)} km`, c.psrFilter ? `$\\le ${c.dPsrMax}\\,\\mathrm{km}$` : 'filter off', c.psrFilter ? t.dPsrKm <= c.dPsrMax : null, c.psrFilter, false);
+  if (power) add('power', 'Mean solar power $\\bar{P}$', `${fmt(power.meanW, 0)} W`, power.minMeanW > 0 ? `$\\ge ${power.minMeanW}\\,\\mathrm{W}$` : 'no requirement', power.minMeanW > 0 ? power.meanW >= power.minMeanW : null, power.minMeanW > 0, false);
 
   const { c: conf, qHorizon } = confidenceScore(t.qSource, t.fInterp, t.sigmaHMax);
   const u = utilities(c, t, m);
@@ -99,16 +99,16 @@ export function assess(c: Criteria, t: TerrainEval, m: MissionMetrics, power?: {
   const failed = checks.filter((k) => k.hard && k.pass === false);
   let status: Feasibility;
   let detail: string;
-  const names: Record<string, string> = { slope: 'slope α', dsun: 'D_sun', ddark: 'D_dark', dte: 'C_earth', tri: 'TRI', cpr: 'CPR', psr: 'd_PSR', power: 'mean power' };
+  const names: Record<string, string> = { slope: 'slope $\\alpha$', dsun: '$D_{\\mathrm{sun}}$', ddark: '$D_{\\mathrm{dark}}$', dte: '$C_{\\mathrm{earth}}$', tri: 'TRI', cpr: 'CPR', psr: '$d_{\\mathrm{PSR}}$', power: 'mean power $\\bar{P}$' };
   if (failed.length) {
     status = 'FAIL';
     detail = `Mandatory constraint violated: ${failed.map((f) => names[f.key]).join(', ')}`;
   } else if (!t.lBaseResolved) {
     status = 'UNKNOWN';
-    detail = `Resolution Limited — ${c.lBase} m DEM unavailable here; slope evaluated at ${Math.round(t.slopeBaselineM)} m regional baseline`;
+    detail = `Resolution Limited — $${c.lBase}\\,\\mathrm{m}$ DEM unavailable here; slope evaluated at ${Math.round(t.slopeBaselineM)} m regional baseline`;
   } else if (conf < c.confMin) {
     status = 'UNKNOWN';
-    detail = `LOW CONFIDENCE — C_data ${conf.toFixed(0)} < ${c.confMin} at L_base ${c.lBase} m (${(t.fInterp * 100).toFixed(0)} % interpolated)`;
+    detail = `LOW CONFIDENCE — $C_{\\mathrm{data}} = ${conf.toFixed(0)} < ${c.confMin}$ at $L_{\\mathrm{base}} = ${c.lBase}\\,\\mathrm{m}$ (${(t.fInterp * 100).toFixed(0)} % interpolated)`;
   } else if (checks.some((k) => k.hard && k.pass === null)) {
     status = 'UNKNOWN';
     detail = 'A mandatory constraint could not be evaluated with the loaded data';

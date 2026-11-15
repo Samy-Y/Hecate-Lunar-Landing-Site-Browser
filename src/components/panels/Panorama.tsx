@@ -11,6 +11,7 @@ import { tLandOf, useApp } from '../../store/useApp';
 import { HOUR_MS, fmt, SUN_SEMIDIAMETER_DEG } from '../../lib/math';
 import { hAt } from '../../science/horizon';
 import { fmtUtc } from '../../lib/time';
+import { tx } from '../common/Tx';
 
 const W = 420, H = 195, ML = 40, MR = 14, MT = 16, MB = 26;
 
@@ -139,8 +140,8 @@ export function Panorama() {
       <div className="pano-legend small">
         <span className="lg sun">— Sun path (mission)</span>
         <span className="lg earth">— Earth path</span>
-        <span className="lg thr">- - θ<sub>min</sub> above ridge</span>
-        <span className="lg band">▒ ±σ<sub>h</sub></span>
+        <span className="lg thr">- - {tx('$\\theta_{\\min}$ above ridge')}</span>
+        <span className="lg band">▒ {tx('$\\pm\\sigma_h$')}</span>
         {now && <span className="mono muted">{fmtUtc(epoch)}</span>}
       </div>
     </div>

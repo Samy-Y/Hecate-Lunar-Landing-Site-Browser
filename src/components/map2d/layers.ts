@@ -276,19 +276,19 @@ export function buildLayer(id: LayerId, data: AppData, s: AppState): { raster: L
 export function legendFor(id: LayerId, s: AppState): LegendSpec | null {
   const c = s.criteria;
   switch (id) {
-    case 'elevation': return { title: 'Elevation (LOLA, m above R = 1737.4 km)', kind: 'ramp', stops: VIRIDIS_CSS, min: '−5000', max: '+7000' };
-    case 'slope': return { title: 'Slope α at the 80 m LOLA baseline (640 m cell mean)', kind: 'ramp', stops: VIRIDIS_CSS, min: '0°', max: `${c.slopeMax}° · above = vermillion`, note: 'Regional slope underestimates footpad-scale (5 m) slope — inspect sites for 5 m values.' };
+    case 'elevation': return { title: 'Elevation (LOLA, m above $R = 1737.4\\,\\mathrm{km}$)', kind: 'ramp', stops: VIRIDIS_CSS, min: '−5000', max: '+7000' };
+    case 'slope': return { title: 'Slope $\\alpha$ at the 80 m LOLA baseline (640 m cell mean)', kind: 'ramp', stops: VIRIDIS_CSS, min: '0°', max: `$${c.slopeMax}^\\circ$ · above = vermillion`, note: 'Regional slope underestimates footpad-scale (5 m) slope — inspect sites for 5 m values.' };
     case 'psr': return { title: 'Permanently Shadowed Regions (PGDA Product 69)', kind: 'cats', cats: [{ color: OKABE.blue, label: 'PSR fraction of the 640 m cell' }] };
-    case 'sunfrac': return { title: 'Average Sun visibility (PGDA Product 69, % of time)', kind: 'ramp', stops: INFERNO_CSS, min: '0 %', max: '≥ 60 %' };
-    case 'effres': return { title: 'Effective DEM resolution (PGDA Product 90 EFFRES)', kind: 'ramp', stops: VIRIDIS_CSS, min: '≥ 200 m', max: '5 m', note: 'Where tracks are sparse the true resolution is much coarser than the grid spacing.' };
-    case 'sigma': return { title: 'Vertical uncertainty σ_z (PGDA Product 90 ERR)', kind: 'ramp', stops: INFERNO_CSS, min: '0 m', max: '≥ 3 m' };
+    case 'sunfrac': return { title: 'Average Sun visibility (PGDA Product 69, % of time)', kind: 'ramp', stops: INFERNO_CSS, min: '0 %', max: '$\\ge 60\\%$' };
+    case 'effres': return { title: 'Effective DEM resolution (PGDA Product 90 EFFRES)', kind: 'ramp', stops: VIRIDIS_CSS, min: '$\\ge 200\\,\\mathrm{m}$', max: '$5\\,\\mathrm{m}$', note: 'Where tracks are sparse the true resolution is much coarser than the grid spacing.' };
+    case 'sigma': return { title: 'Vertical uncertainty $\\sigma_z$ (PGDA Product 90 ERR)', kind: 'ramp', stops: INFERNO_CSS, min: '0 m', max: '$\\ge 3\\,\\mathrm{m}$' };
     case 'illum': return { title: 'Shaded illumination at the current epoch (cast shadows, finite Sun disk)', kind: 'ramp', stops: INFERNO_CSS, min: 'shadow', max: 'fully lit' };
-    case 'psrdist': return { title: 'Distance to nearest PSR', kind: 'ramp', stops: VIRIDIS_CSS, min: '≥ 20 km', max: '0 km' };
+    case 'psrdist': return { title: 'Distance to nearest PSR', kind: 'ramp', stops: VIRIDIS_CSS, min: '$\\ge 20\\,\\mathrm{km}$', max: '0 km' };
     case 'cpr': return { title: 'Mini-RF CPR (LRO Mini-RF global mosaic)', kind: 'ramp', stops: VIRIDIS_CSS, min: '0.25', max: '1.05', note: 'Independent layer — not a boulder count.' };
-    case 'confidence': return { title: `Data confidence at L_base = ${c.lBase} m (LOLA spot-density model)`, kind: 'cats', cats: [{ color: OKABE.pass, label: 'High ≥ 80', badge: '●' }, { color: OKABE.unknown, label: 'Moderate 50–79', badge: '▲' }, { color: OKABE.fail, label: 'Low < 50', badge: '■' }] };
+    case 'confidence': return { title: `Data confidence at $L_{\\mathrm{base}} = ${c.lBase}\\,\\mathrm{m}$ (LOLA spot-density model)`, kind: 'cats', cats: [{ color: OKABE.pass, label: 'High ($\\ge 80$)', badge: '●' }, { color: OKABE.unknown, label: 'Moderate ($50\\text{–}79$)', badge: '▲' }, { color: OKABE.fail, label: 'Low ($< 50$)', badge: '■' }] };
     case 'sunNow': return { title: 'Sun disk visible now (horizon grid, 4.75 km)', kind: 'ramp', stops: INFERNO_CSS, min: 'occulted', max: 'full disk' };
-    case 'earthNow': return { title: 'Geometric DTE now', kind: 'cats', cats: [{ color: OKABE.sky, label: `Earth ≥ ${c.earthMinEl}° above terrain` }, { color: OKABE.yellow, label: 'Visible, below clearance' }, { color: '#28282f', label: 'Earth hidden' }] };
-    case 'fsStatus': return { title: 'Forward search · regional feasibility screen (landing = start of mission window)', kind: 'cats', cats: [{ color: OKABE.pass, label: 'PASS', badge: '✓' }, { color: OKABE.unknown, label: `UNKNOWN — screen passed, ${c.lBase} m slope unresolved`, badge: '?' }, { color: OKABE.fail, label: 'FAIL', badge: '✕' }] };
+    case 'earthNow': return { title: 'Geometric DTE now', kind: 'cats', cats: [{ color: OKABE.sky, label: `Earth $\\ge ${c.earthMinEl}^\\circ$ above terrain` }, { color: OKABE.yellow, label: 'Visible, below clearance' }, { color: '#28282f', label: 'Earth hidden' }] };
+    case 'fsStatus': return { title: 'Forward search · regional feasibility screen (landing = start of mission window)', kind: 'cats', cats: [{ color: OKABE.pass, label: 'PASS', badge: '✓' }, { color: OKABE.unknown, label: `UNKNOWN — screen passed, $${c.lBase}\\,\\mathrm{m}$ slope unresolved`, badge: '?' }, { color: OKABE.fail, label: 'FAIL', badge: '✕' }], note: 'FAIL cells are dimmed for legibility so terrain relief and passing sites stay clear; the outer rim (> 300 km from the pole) has no horizon grid.' };
     case 'fsSuit': return { title: 'Forward search · Suitability (0–100)', kind: 'ramp', stops: VIRIDIS_CSS, min: '0', max: '100', note: 'Grey = FAIL' };
     case 'fsConf': return { title: 'Forward search · Data Confidence (0–100)', kind: 'ramp', stops: VIRIDIS_CSS, min: '0', max: '100' };
     case 'fsAvail': return { title: 'Forward search · Launch-slip availability (% of hourly landing epochs viable)', kind: 'ramp', stops: VIRIDIS_CSS, min: '0 %', max: '100 %' };
@@ -307,10 +307,10 @@ export const LAYERS: { id: LayerId; label: string; group: string; adv?: boolean;
   { id: 'sunfrac', label: 'Average Sun visibility', group: 'Illumination & comms' },
   { id: 'psr', label: 'Permanently shadowed regions', group: 'Illumination & comms' },
   { id: 'elevation', label: 'Elevation', group: 'Terrain & hazards' },
-  { id: 'slope', label: 'Slope (α)', group: 'Terrain & hazards' },
+  { id: 'slope', label: 'Slope ($\\alpha$)', group: 'Terrain & hazards' },
   { id: 'cpr', label: 'Mini-RF CPR', group: 'Terrain & hazards', adv: true },
   { id: 'psrdist', label: 'Distance to PSR', group: 'Terrain & hazards', adv: true },
-  { id: 'confidence', label: 'Data confidence @ L_base', group: 'Data quality' },
+  { id: 'confidence', label: 'Data confidence ($L_{\\mathrm{base}}$)', group: 'Data quality' },
   { id: 'effres', label: 'Effective resolution', group: 'Data quality', adv: true },
-  { id: 'sigma', label: 'Vertical uncertainty σ_z', group: 'Data quality', adv: true },
+  { id: 'sigma', label: 'Vertical uncertainty $\\sigma_z$', group: 'Data quality', adv: true },
 ];

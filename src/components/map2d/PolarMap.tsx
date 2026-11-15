@@ -14,6 +14,7 @@ import { shallow } from 'zustand/shallow';
 import { fmtLat, fmtLon, latLonToPolar, polarToLatLon } from '../../lib/geo';
 import { DEG, R_MOON_M } from '../../lib/math';
 import { geometryAt } from '../../science/ephemeris';
+import { resolvePolarHover, resolvePolarSelection } from '../../science/gridSnap';
 import { runtime } from '../../store/runtime';
 import { useApp } from '../../store/useApp';
 import { useRuntimeData } from '../common/useRuntimeData';
@@ -41,11 +42,17 @@ export function PolarMap() {
   const keys = useRef(new Set<string>());
   const illumRef = useRef<{ canvas: HTMLCanvasElement; rect: { x0: number; yTop: number; width: number }; key: string } | null>(null);
   const illumBusy = useRef(false);
+  const lastBakeAt = useRef(0);
+  const bakeTimer = useRef(0);
+  const bakeDirty = useRef(false);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const pendingTiles = useRef(new Set<string>());
+  const [mapReady, setMapReady] = useState(false);
+  const [streamingCount, setStreamingCount] = useState(0);
 
-  const { layer, layerOpacity, selection, pins, epoch, showGraticule, showLabels, showSites, showEva, criteria, forward, instant, lonConvention, view: viewMode, flyTo, globeLighting } = useApp(
+  const { layer, layerOpacity, selection, pins, epoch, playing, hoverCell, showGraticule, showLabels, showSites, showEva, criteria, forward, instant, lonConvention, view: viewMode, flyTo, globeLighting } = useApp(
     (st) => ({
-      layer: st.layer, layerOpacity: st.layerOpacity, selection: st.selection, pins: st.pins, epoch: st.epoch, showGraticule: st.showGraticule,
+      layer: st.layer, layerOpacity: st.layerOpacity, selection: st.selection, pins: st.pins, epoch: st.epoch, playing: st.playing, hoverCell: st.hover?.cell, showGraticule: st.showGraticule,
       showLabels: st.showLabels, showSites: st.showSites, showEva: st.showEva, criteria: st.criteria, forward: st.forward, instant: st.instant,
       lonConvention: st.lonConvention, view: st.view, flyTo: st.flyTo, globeLighting: `${st.globe.lighting}|${st.globe.shadows}`,
     }),
@@ -149,7 +156,17 @@ export function PolarMap() {
             if (!pyr.hasTile(kk, tx, ty)) continue;
             const tile = pyr.tile(kk, tx, ty);
             if (!tile) {
-              if (kk === k) void pyr.request(kk, tx, ty);
+              if (kk === k) {
+                const tid = `${kk}/${ty}_${tx}`;
+                if (!pendingTiles.current.has(tid)) {
+                  pendingTiles.current.add(tid);
+                  setStreamingCount(pendingTiles.current.size);
+                  void pyr.request(kk, tx, ty).finally(() => {
+                    pendingTiles.current.delete(tid);
+                    setStreamingCount(pendingTiles.current.size);
+                  });
+                }
+              }
               continue;
             }
             const cnv = tileHillshade(`${kk}/${ty}_${tx}`, tile, pyr.N, pyr.px(kk), pyr.info.nodata, pyr.info.scale);
@@ -165,8 +182,25 @@ export function PolarMap() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, [size]);
 
+  const initialPainted = useRef(false);
   useEffect(() => {
+    if (!runtime.data) return;
+    if (!initialPainted.current) {
+      let cancelled = false;
+      const raf = requestAnimationFrame(() => {
+        if (cancelled) return;
+        draw();
+        initialPainted.current = true;
+        const st = useApp.getState();
+        if (st.globe.lighting !== 'sun' || !runtime.bake2d) setMapReady(true);
+      });
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(raf);
+      };
+    }
     draw();
+    if (useApp.getState().globe.lighting !== 'sun' || !runtime.bake2d) setMapReady(true);
   }, [draw, data, dataVersion, layer, layerOpacity, criteria, forward, instant, globeLighting]);
 
   // Redraw when pyramid tiles arrive.
@@ -183,21 +217,33 @@ export function PolarMap() {
     };
   }, [draw, data]);
 
-  // GPU illumination bake of the visible area for the current epoch (throttled; re-run on pan/zoom).
+  const scheduleBakeRef = useRef<(immediate?: boolean) => void>(() => void 0);
+
+  // GPU illumination bake of the visible area for the current epoch (throttled; coalesced across playback).
   const bakeIllum = useCallback(async () => {
     const st = useApp.getState();
-    if (!runtime.bake2d || illumBusy.current || st.view !== '2d' || st.globe.lighting !== 'sun') return;
+    if (st.view !== '2d') return;
+    if (st.globe.lighting !== 'sun' || !runtime.bake2d) {
+      setMapReady(true);
+      return;
+    }
+    if (illumBusy.current || !runtime.data) {
+      bakeDirty.current = true;
+      return;
+    }
     const v = view.current;
     const half = (Math.max(size.w, size.h) * v.s * 1.45) / 2;
-    const W = runtime.data!.regional.pyr.info.W;
+    const W = runtime.data.regional.pyr.info.W;
     const width = Math.min(2 * W, Math.max(2000, 2 * half));
     const x0 = Math.max(-W, Math.min(W - width, v.cx - width / 2));
     const yTop = Math.min(W, Math.max(-W + width, v.cy + width / 2));
-    const n = 1024;
+    const n = st.playing ? 512 : 1024;
     const k = width / n < 300 ? levelForTexel(width / n) : null;
+    const bakedEpoch = st.epoch;
     illumBusy.current = true;
+    bakeDirty.current = false;
     try {
-      const px = await runtime.bake2d({ x0, yTop, width }, n, st.epoch, k);
+      const px = await runtime.bake2d({ x0, yTop, width }, n, bakedEpoch, k);
       if (!px) return;
       const cnv = illumRef.current?.canvas.width === n ? illumRef.current.canvas : document.createElement('canvas');
       cnv.width = cnv.height = n;
@@ -218,17 +264,54 @@ export function PolarMap() {
         }
       }
       ctx.putImageData(img, 0, 0);
-      illumRef.current = { canvas: cnv, rect: { x0, yTop, width }, key: `${x0}|${yTop}|${width}|${st.epoch}` };
+      illumRef.current = { canvas: cnv, rect: { x0, yTop, width }, key: `${x0}|${yTop}|${width}|${bakedEpoch}` };
       draw();
     } finally {
       illumBusy.current = false;
+      lastBakeAt.current = performance.now();
+      setMapReady(true);
+      const cur = useApp.getState();
+      if ((bakeDirty.current || cur.epoch !== bakedEpoch) && cur.view === '2d' && cur.globe.lighting === 'sun') {
+        scheduleBakeRef.current(false);
+      }
     }
   }, [size, draw]);
 
+  const scheduleBake = useCallback((immediate = false) => {
+    const st = useApp.getState();
+    if (st.view !== '2d') return;
+    if (st.globe.lighting !== 'sun' || !runtime.bake2d) {
+      setMapReady(true);
+      return;
+    }
+    if (illumBusy.current) {
+      bakeDirty.current = true;
+      return;
+    }
+    if (bakeTimer.current && !immediate) return;
+    if (bakeTimer.current) {
+      window.clearTimeout(bakeTimer.current);
+      bakeTimer.current = 0;
+    }
+    const wait = immediate ? 0 : Math.max(0, 85 - (performance.now() - lastBakeAt.current));
+    bakeTimer.current = window.setTimeout(() => {
+      bakeTimer.current = 0;
+      void bakeIllum();
+    }, wait);
+  }, [bakeIllum]);
+
+  scheduleBakeRef.current = scheduleBake;
+
+  useEffect(() => () => window.clearTimeout(bakeTimer.current), []);
+
+  // Re-bake on epoch / playback settle / view / lighting without cancelling in-flight playback timers.
   useEffect(() => {
-    const t = window.setTimeout(() => void bakeIllum(), 60);
-    return () => window.clearTimeout(t);
-  }, [epoch, bakeIllum, viewMode, globeLighting, data]);
+    scheduleBake(false);
+  }, [epoch, scheduleBake]);
+
+  useEffect(() => {
+    scheduleBake(true);
+  }, [viewMode, globeLighting, data, playing, scheduleBake]);
 
   // Publish the 2D camera to the store (HUD dial / zoom slider / resolution) and re-bake on view change.
   const viewTimer = useRef(0);
@@ -253,8 +336,8 @@ export function PolarMap() {
       }
     }
     window.clearTimeout(viewTimer.current);
-    viewTimer.current = window.setTimeout(() => void bakeIllum(), 160);
-  }, [size, bakeIllum]);
+    viewTimer.current = window.setTimeout(() => scheduleBake(true), 160);
+  }, [size, scheduleBake]);
 
   // Navigation hub commands (2D): pan along screen axes, rotate, zoom, north-up, pole.
   useEffect(
@@ -430,25 +513,25 @@ export function PolarMap() {
     };
   }, [viewMode, draw, rerender, onViewChanged]);
 
-  const selectAt = (px: number, py: number) => {
+  const selectAt = (px: number, py: number, shiftKey = false, altKey = false) => {
     const d = runtime.data;
     if (!d) return;
     const [x, y] = toMap(px, py);
+    const st = useApp.getState();
     if (Math.hypot(x, y) > 304000) {
       const [lat, lon] = polarToLatLon(x, y);
-      useApp.getState().notify(
-        `This software covers only the lunar South Pole (80°S–90°S). Clicked ${fmtLat(lat, 2)} ${fmtLon(lon, useApp.getState().lonConvention)}.`,
+      st.notify(
+        `This software covers only the lunar South Pole (80°S–90°S). Clicked ${fmtLat(lat, 2)} ${fmtLon(lon, st.lonConvention)}.`,
         { icon: 'warn' },
       );
       return;
     }
-    if (Number.isNaN(d.regional.dem.sample(x, y))) return;
-    const site = d.manifest.sites.find((q) => Math.hypot(q.x - x, q.y - y) < view.current.s * 8);
-    if (site) useApp.getState().select({ x: site.x, y: site.y, lat: site.lat, lon: site.lon, siteId: site.id, name: site.name });
-    else {
-      const [lat, lon] = polarToLatLon(x, y);
-      useApp.getState().select({ x, y, lat, lon, siteId: null, name: `${fmtLat(lat, 3)} ${fmtLon(lon, useApp.getState().lonConvention)}` });
-    }
+    const resolved = resolvePolarSelection(d, st.forward, x, y, {
+      siteSnapM: view.current.s * 10,
+      snapCells: st.snapToCells && !altKey,
+      lonConvention: st.lonConvention,
+    });
+    if (resolved) st.pickMapSite(resolved.selection, shiftKey);
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -482,14 +565,28 @@ export function PolarMap() {
     const [zp] = d.regional.pyr.sampleBest(x, y, 0);
     const zr = Number.isNaN(zp) ? d.regional.dem.sample(x, y) : zp;
     const elev = Number.isNaN(zr) ? null : zr;
-    useApp.getState().set({ hover: { lat, lon, elev } });
+    const st = useApp.getState();
+    const h = resolvePolarHover(d, st.forward, lat, lon, elev, {
+      siteSnapM: view.current.s * 10,
+      snapCells: st.snapToCells && !e.altKey,
+      lonConvention: st.lonConvention,
+    });
+    st.set({
+      hover: {
+        lat: h.lat,
+        lon: h.lon,
+        elev: h.elev,
+        ...(h.cell ? { cell: { row: h.cell.row, col: h.cell.col, x: h.cell.x, y: h.cell.y, dx: h.cell.dx, status: h.cell.status, passedRank: h.cell.passedRank } } : {}),
+        label: h.label || undefined,
+      },
+    });
   };
   const onPointerUp = (e: React.PointerEvent) => {
     const dr = drag.current;
     drag.current = null;
     if (dr && !dr.moved && e.button === 0) {
       const r = wrap.current!.getBoundingClientRect();
-      selectAt(e.clientX - r.left, e.clientY - r.top);
+      selectAt(e.clientX - r.left, e.clientY - r.top, e.shiftKey, e.altKey);
     }
   };
 
@@ -560,12 +657,32 @@ export function PolarMap() {
       forward.top.slice(0, 8).forEach((cand, i) => {
         const [sx, sy] = toScreen(cand.x, cand.y);
         els.push(
-          <g key={`top${i}`} className="cand" onPointerDown={(e) => e.stopPropagation()} onClick={() => useApp.getState().select({ x: cand.x, y: cand.y, lat: cand.lat, lon: cand.lon, siteId: null, name: `Candidate #${i + 1}` })}>
+          <g
+            key={`top${i}`}
+            className="cand"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              useApp.getState().pickMapSite({ x: cand.x, y: cand.y, lat: cand.lat, lon: cand.lon, siteId: null, name: `Candidate #${i + 1}` }, e.shiftKey);
+            }}
+          >
             <circle cx={sx} cy={sy} r={9} />
             <text x={sx} y={sy + 4}>{i + 1}</text>
           </g>,
         );
       });
+    }
+    // Snapped 4.75 km regional cell hover outline
+    if (hoverCell) {
+      const h = hoverCell.dx / 2;
+      const pts = [
+        [hoverCell.x - h, hoverCell.y + h],
+        [hoverCell.x + h, hoverCell.y + h],
+        [hoverCell.x + h, hoverCell.y - h],
+        [hoverCell.x - h, hoverCell.y - h],
+      ].map(([cx, cy]) => toScreen(cx, cy).join(',')).join(' ');
+      const tone = hoverCell.status === 2 ? 'pass' : hoverCell.status === 1 ? 'unknown' : 'default';
+      els.push(<polygon key="snapcell" points={pts} className={`snap-cell ${tone}`} />);
     }
     // Curated sites
     if (showSites) {
@@ -616,7 +733,7 @@ export function PolarMap() {
       );
     }
     return els;
-  }, [data, dataVersion, toScreen, showGraticule, showLabels, showSites, showEva, selection, pins, forward, layer, criteria.ellipseR, geo, size, lonConvention, v.s, v.cx, v.cy, v.rot]);
+  }, [data, dataVersion, toScreen, showGraticule, showLabels, showSites, showEva, selection, pins, forward, layer, criteria.ellipseR, geo, size, lonConvention, hoverCell, v.s, v.cx, v.cy, v.rot]);
 
   // Scale bar
   const scaleBar = useMemo(() => {
@@ -639,12 +756,29 @@ export function PolarMap() {
         </defs>
         {overlay}
       </svg>
+      {!mapReady && (
+        <div className="map-loading" role="status" aria-live="polite">
+          <div className="map-loading-card">
+            <div className="spinner" />
+            <div>
+              <strong>Loading 2D polar map…</strong>
+              <span className="small muted">Rendering regional hillshade & solar shadows</span>
+            </div>
+          </div>
+        </div>
+      )}
+      {mapReady && streamingCount > 0 && (
+        <div className="map-busy-pill" role="status">
+          <div className="spinner" />
+          <span>Streaming LOLA tiles ({streamingCount})…</span>
+        </div>
+      )}
       <div className="scalebar">
         <div style={{ width: scaleBar.px }} />
         <span>{scaleBar.label}</span>
         <span className="muted">· {view.current.s < 1000 ? `${view.current.s.toFixed(view.current.s < 10 ? 1 : 0)} m/px` : `${(view.current.s / 1000).toFixed(1)} km/px`}</span>
       </div>
-      <div className="map-hint">Wheel: zoom at cursor · Drag/Arrows: pan · Shift+←/→: rotate · Click: select · P: pin</div>
+      <div className="map-hint">Wheel: zoom at cursor · Drag/Arrows: pan · Shift+Click: multi-select · Alt: free point · P: pin</div>
     </div>
   );
 }

@@ -235,3 +235,37 @@ code.live.math { font-family: var(--mono); font-size: 12px; }
 @media (prefers-reduced-motion: reduce) {
   .menu-glow, .menu-center { animation: none !important; }
 }
+
+/* ===================== KaTeX & InfoTip hover card ===================== */
+.i-card { position: fixed; z-index: 200; width: min(410px, calc(100vw - 24px)); top: auto; pointer-events: auto; user-select: text; max-height: min(75vh, 520px); overflow-y: auto; }
+.math-box { font-size: 12px; background: var(--raise); padding: 6px 8px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); overflow-x: auto; overflow-y: hidden; }
+.math-box.live { border-left: 3px solid var(--accent); }
+.math-box .katex { font-size: 1.02em; }
+.katex-inline .katex { font-size: 1em; line-height: 1.15; }
+.katex-inline .katex-html { white-space: nowrap; }
+
+/* ===================== Recap filters & unified selection ===================== */
+.recap-filters { display: grid; gap: 6px; }
+.recap-filters .seg button { font-size: 11px; padding: 4px 8px; }
+.recap-conf-filter { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--ink-2); }
+.recap-conf-filter input[type='range'] { width: 92px; accent-color: var(--accent); }
+.recap-list li { grid-template-columns: 24px minmax(0, 1fr); gap: 4px 8px; padding: 7px 8px; align-items: center; border-left: 4px solid var(--pin, var(--line)); }
+.recap-list li:not(.pinned) { border-left-color: var(--line); }
+.recap-check { grid-column: 1; grid-row: 1; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); cursor: pointer; }
+.recap-check:hover { border-color: var(--accent); color: var(--ink); }
+.recap-check.on { border-color: var(--pin, var(--accent)); background: color-mix(in srgb, var(--pin, var(--accent)) 22%, var(--panel)); color: var(--ink); }
+.recap-check svg { width: 13px; height: 13px; }
+.recap-main { grid-column: 2; grid-row: 1; min-width: 0; color: var(--ink); }
+.recap-list .rank { min-width: 20px; font: 11px var(--mono); color: var(--muted); text-align: right; }
+.recap-metrics, .recap-why { grid-column: 2; padding-left: 0; }
+.recap-tag { font-style: normal; font-weight: 500; font-size: 10.5px; color: var(--accent); margin-left: 6px; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 14%, transparent); vertical-align: middle; }
+
+/* ===================== 2D polar map loading & cell snapping ===================== */
+.snap-cell { fill: rgba(255, 255, 255, 0.08); stroke: rgba(255, 255, 255, 0.85); stroke-width: 1.5; stroke-dasharray: 4 2; }
+.snap-cell.pass { fill: color-mix(in srgb, var(--pass) 18%, transparent); stroke: var(--pass); stroke-dasharray: none; }
+.snap-cell.unknown { fill: color-mix(in srgb, var(--unknown) 18%, transparent); stroke: var(--unknown); stroke-dasharray: none; }
+.map-loading { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: color-mix(in srgb, var(--map-bg, #0d0f14) 84%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); pointer-events: auto; }
+.map-loading-card { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-solid); box-shadow: var(--shadow); color: var(--ink); }
+.map-loading-card > div:last-child { display: grid; gap: 2px; }
+.map-busy-pill { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 25; display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-solid); box-shadow: var(--shadow); font-size: 12px; color: var(--ink); pointer-events: none; }
+.map-busy-pill .spinner { width: 14px; height: 14px; }

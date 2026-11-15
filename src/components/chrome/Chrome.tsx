@@ -136,8 +136,8 @@ export function LayerPanel() {
             </label>
           )}
           <div className="lp-toggles">
-            {([['showGraticule', 'Graticule'], ['showLabels', 'Labels'], ['showSites', 'Sites'], ['showEva', 'EVA rings']] as const).map(([k, l]) => (
-              <label key={k} className="lp-opt">
+            {([['showGraticule', 'Graticule'], ['showLabels', 'Labels'], ['showSites', 'Sites'], ['showEva', 'EVA rings'], ['snapToCells', 'Cell snap']] as const).map(([k, l]) => (
+              <label key={k} className="lp-opt" title={k === 'snapToCells' ? 'Snap hover & clicks to 4.75 km polar cells (hold Alt to override)' : undefined}>
                 <input type="checkbox" checked={st[k]} onChange={(e) => useApp.getState().set({ [k]: e.target.checked } as never)} />
                 <span>{l}</span>
               </label>
@@ -151,11 +151,11 @@ export function LayerPanel() {
           {legend.kind === 'ramp' ? (
             <>
               <div className="ramp" style={{ background: legend.stops }} />
-              <div className="ramp-lbl"><span>{legend.min}</span><span>{legend.max}</span></div>
+              <div className="ramp-lbl"><span>{tx(legend.min ?? '')}</span><span>{tx(legend.max ?? '')}</span></div>
             </>
           ) : (
             legend.cats!.map((c) => (
-              <div key={c.label} className="cat"><span className="sw" style={{ background: c.color }}>{c.badge}</span>{c.label}</div>
+              <div key={c.label} className="cat"><span className="sw" style={{ background: c.color }}>{c.badge}</span>{tx(c.label)}</div>
             ))
           )}
           {legend.note && <span className="small muted">{tx(legend.note)}</span>}
@@ -179,7 +179,7 @@ export function StatusBar() {
   return (
     <footer className="statusbar">
       <span className={`eph ${ephem.mode}`} title={ephem.detail}>● {ephemLabel}</span>
-      <span className="mono">{hover ? `${fmtLat(hover.lat, 4)} ${fmtLon(hover.lon, lonC, 3)}${hover.elev != null ? ` · ${fmt(hover.elev, 0)} m` : ''}` : <span className="muted">Cursor not on map</span>}</span>
+      <span className="mono">{hover ? `${fmtLat(hover.lat, 4)} ${fmtLon(hover.lon, lonC, 3)}${hover.elev != null ? ` · ${fmt(hover.elev, 0)} m` : ''}${hover.label ? ` · ${hover.label}` : ''}` : <span className="muted">Cursor not on map</span>}</span>
       {load.label && load.phase === 'ready' && load.progress < 1 && (
         <span className="loadinfo"><span className="mini-progress"><span style={{ width: `${load.progress * 100}%` }} /></span>{load.label}</span>
       )}
