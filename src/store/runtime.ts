@@ -144,14 +144,24 @@ async function runAnalysis() {
     return;
   }
   const seq = ++analysisSeq;
+  const wasPres = s.presentation.active;
   s.set({ analysisBusy: true, analysisError: null });
   try {
     const result = await runtime.engine.call<SiteAnalysis>('analyze', { x: sel.x, y: sel.y, siteId: sel.siteId, crit: s.criteria, tLand: tLandOf(s), power: s.power });
     if (seq !== analysisSeq) return;
+    if (wasPres && !useApp.getState().presentation.active) {
+      useApp.getState().set({ analysisBusy: false });
+      return;
+    }
     useApp.getState().set({ analysis: result, analysisBusy: false });
     if (useApp.getState().autoVerify && !useApp.getState().playing) void verifyWithHorizons(sel);
   } catch (err) {
-    if (seq === analysisSeq) useApp.getState().set({ analysisBusy: false, analysisError: (err as Error).message });
+    if (seq !== analysisSeq) return;
+    if (wasPres && !useApp.getState().presentation.active) {
+      useApp.getState().set({ analysisBusy: false });
+      return;
+    }
+    useApp.getState().set({ analysisBusy: false, analysisError: (err as Error).message });
   }
 }
 export const scheduleAnalysis = throttled(runAnalysis, 180);
@@ -183,21 +193,29 @@ async function runInstant() {
 }
 const scheduleInstant = throttled(runInstant, 120);
 
+let compareSeq = 0;
 async function runCompareNow() {
   const s = useApp.getState();
   if (!runtime.engine || s.pins.length === 0) {
     s.set({ compare: null });
     return;
   }
+  const seq = ++compareSeq;
+  const wasPres = s.presentation.active;
   s.set({ compareBusy: true });
   try {
     const rows = await runtime.engine.call<CompareRow[]>('compare', {
       sites: s.pins.map((p) => ({ id: p.id, x: p.x, y: p.y, siteId: p.siteId })),
       crit: s.criteria, tLand: tLandOf(s), power: s.power, offsetsH: [0, 24, 168, 336],
     });
+    if (seq !== compareSeq) return;
+    if (wasPres && !useApp.getState().presentation.active) {
+      useApp.getState().set({ compareBusy: false });
+      return;
+    }
     useApp.getState().set({ compare: rows, compareBusy: false });
   } catch {
-    useApp.getState().set({ compareBusy: false });
+    if (seq === compareSeq) useApp.getState().set({ compareBusy: false });
   }
 }
 const scheduleCompare = throttled(runCompareNow, 900);
@@ -271,12 +289,15 @@ export async function validateShadows(n = 40): Promise<string> {
  * proxy, compare with Tier 1, and switch the status to "Override Active" when |dtheta| exceeds the acceptance
  * threshold (0.05 deg Sun, 0.10 deg Earth). Timeout 3 s -> "Horizons API Unreachable".
  */
+let ephemSeq = 0;
 export async function verifyWithHorizons(sel: Selection) {
   const s = useApp.getState();
   const tLand = tLandOf(s);
   const elevKm = ((s.analysis?.terrain.elev ?? 0) + 2) / 1000;
   const key = `${sel.x.toFixed(0)}|${sel.y.toFixed(0)}|${tLand}|${s.criteria.missionH}`;
   if (s.ephem.siteKey === key && s.ephem.mode !== 'unreachable') return;
+  const seq = ++ephemSeq;
+  const wasPres = s.presentation.active;
   s.set({ ephem: { mode: 'checking', detail: 'Verifying against NASA JPL Horizons…', siteKey: key } });
   const stepH = Math.max(1, Math.round(s.criteria.missionH / 24));
   const fmtT = (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ');
@@ -317,6 +338,7 @@ export async function verifyWithHorizons(sel: Selection) {
       dE = Math.max(dE, Math.hypot(te.el - earth[i].el, azDiff(earth[i].az, te.az) * Math.cos((te.el * Math.PI) / 180)));
     }
     const override = dS > 0.05 || dE > 0.1;
+    if (seq !== ephemSeq || (wasPres && !useApp.getState().presentation.active)) return;
     useApp.getState().set({
       ephem: {
         mode: override ? 'override' : 'local', siteKey: key, maxDeltaSun: dS, maxDeltaEarth: dE,
@@ -326,6 +348,7 @@ export async function verifyWithHorizons(sel: Selection) {
       },
     });
   } catch {
+    if (seq !== ephemSeq || (wasPres && !useApp.getState().presentation.active)) return;
     useApp.getState().set({ ephem: { mode: 'unreachable', siteKey: key, detail: 'Local Ephemeris Active (Horizons API Unreachable) [Offline Mode — Unverified]' } });
   }
 }

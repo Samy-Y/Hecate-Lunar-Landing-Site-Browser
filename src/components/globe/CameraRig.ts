@@ -130,9 +130,23 @@ export class CameraRig {
     this.moveLateral(0, this.range * 0.012 * dt);
   }
 
+  /** Slow azimuth orbit around the active focus target (Presentation Mode). */
+  orbitFocus(dt: number, degPerSec = 4.2) {
+    if (this.anim || this.drag) return;
+    this.heading = (this.heading + degPerSec * dt + 360) % 360;
+  }
+
   flyTo(lat: number, lon: number, rangeKm: number, heading = this.heading, tilt = this.tilt, dur = 1.4) {
     const cl = Math.cos(lat * DEG);
     const to: Vec3 = [cl * Math.cos(lon * DEG), cl * Math.sin(lon * DEG), Math.sin(lat * DEG)];
+    if (dur <= 0) {
+      this.focus = to;
+      this.range = clamp(rangeKm, 0.03, 60000);
+      this.heading = heading;
+      this.tilt = tilt;
+      this.anim = null;
+      return;
+    }
     this.anim = { t: 0, dur, from: { f: this.focus, r: this.range, h: this.heading, tl: this.tilt }, to: { f: to, r: rangeKm, h: heading, tl: tilt } };
   }
 
@@ -330,7 +344,7 @@ export class CameraRig {
         this.keys.add(k);
         if (e.shiftKey) this.keys.add('Shift');
       }
-      if ((k === 'p' || k === 'P') && !e.ctrlKey && !e.metaKey) this.cb.onPinKey();
+      if ((k === 'p' || k === 'P') && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) this.cb.onPinKey();
     };
     const onKeyUp = (e: KeyboardEvent) => {
       this.keys.delete(keyName(e));

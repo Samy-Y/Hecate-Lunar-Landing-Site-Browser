@@ -39,9 +39,9 @@ export function Timeline() {
       const n = e.target as HTMLElement | null;
       if (n && (n.tagName === 'INPUT' || n.tagName === 'TEXTAREA' || n.tagName === 'SELECT')) return;
       if (useApp.getState().screen !== 'workbench' || useApp.getState().tutorialStep !== null) return;
-      if (e.key === '[' || e.key === '{') useApp.getState().stepEpoch(e.shiftKey || e.key === '{' ? -24 : -1);
-      if (e.key === ']' || e.key === '}') useApp.getState().stepEpoch(e.shiftKey || e.key === '}' ? 24 : 1);
-      if (e.key === ' ' && n?.tagName !== 'BUTTON') {
+      if (!e.altKey && (e.key === '[' || e.key === '{')) useApp.getState().stepEpoch(e.shiftKey || e.key === '{' ? -24 : -1);
+      if (!e.altKey && (e.key === ']' || e.key === '}')) useApp.getState().stepEpoch(e.shiftKey || e.key === '}' ? 24 : 1);
+      if (e.key === ' ' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && n?.tagName !== 'BUTTON') {
         e.preventDefault();
         useApp.getState().set({ playing: !useApp.getState().playing });
       }

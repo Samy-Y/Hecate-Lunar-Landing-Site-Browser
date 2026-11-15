@@ -505,7 +505,16 @@ gl_FragColor = vec4(col*(0.03+1.1*d), 1.0); }`,
 
   const flyTo = useApp((s) => s.flyTo);
   useEffect(() => {
-    if (flyTo && sys.current) sys.current.rig.flyTo(flyTo.lat, flyTo.lon, flyTo.rangeKm, sys.current.rig.heading, Math.min(sys.current.rig.tilt, 50));
+    if (flyTo && sys.current) {
+      sys.current.rig.flyTo(
+        flyTo.lat,
+        flyTo.lon,
+        flyTo.rangeKm,
+        flyTo.heading ?? sys.current.rig.heading,
+        flyTo.tilt ?? Math.min(sys.current.rig.tilt, 50),
+        flyTo.dur,
+      );
+    }
   }, [flyTo]);
 
   useEffect(() => {
@@ -520,6 +529,7 @@ gl_FragColor = vec4(col*(0.03+1.1*d), 1.0); }`,
     if (!sy || !runtime.data) return;
     const s = useApp.getState();
     if (s.screen === 'menu') sy.rig.orbit(Math.min(dt, 0.1));
+    else if (s.presentation.active && s.presentation.orbit) sy.rig.orbitFocus(Math.min(dt, 0.1));
     sy.rig.update(Math.min(dt, 0.1));
     rigRangeRef.current.v = sy.rig.range;
     const cam = camera as THREE.PerspectiveCamera;

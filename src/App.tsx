@@ -14,6 +14,7 @@ import { Timeline } from './components/panels/Timeline';
 import { FullscreenButton, Header, LayerPanel, StatusBar, Toast, ViewportTools } from './components/chrome/Chrome';
 import { AboutModal, SettingsModal, Tutorial } from './components/chrome/Modals';
 import { MainMenu } from './components/chrome/MainMenu';
+import { PresentationCard, PresentationOverlays } from './components/chrome/PresentationMode';
 import { ViewportHud } from './components/chrome/ViewportHud';
 import './styles/app.css';
 import './styles/v21.css';
@@ -25,6 +26,8 @@ export function App() {
   const modal = useApp((s) => s.modal);
   const screen = useApp((s) => s.screen);
   const hidden = useApp((s) => s.uiHidden);
+  const pres = useApp((s) => s.presentation);
+  const presCls = pres.active ? ` pres-active pres-s-${pres.slide}${pres.qaId !== null ? ` pres-qa pres-qa-${pres.qaId}` : ''}` : '';
   useEffect(() => {
     void boot();
   }, []);
@@ -33,7 +36,7 @@ export function App() {
   }, [theme]);
   const dataReady = load.phase === 'ready';
   return (
-    <div className={`app${screen === 'menu' ? ' in-menu' : ''}${hidden ? ' ui-hidden' : ''}`}>
+    <div className={`app${screen === 'menu' ? ' in-menu' : ''}${hidden ? ' ui-hidden' : ''}${presCls}`}>
       <Header />
       <div className="workbench">
         <LeftPanel />
@@ -55,6 +58,7 @@ export function App() {
                     <FullscreenButton />
                   </div>
                 )}
+                <PresentationCard />
               </>
             ) : (
               <div className="boot">
@@ -74,6 +78,7 @@ export function App() {
       {modal === 'settings' && <SettingsModal />}
       <Tutorial />
       <Toast />
+      <PresentationOverlays />
     </div>
   );
 }

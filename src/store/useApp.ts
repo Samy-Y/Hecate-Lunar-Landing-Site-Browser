@@ -17,6 +17,15 @@ export type AppMode = 'forward' | 'site';
 export type Screen = 'menu' | 'workbench';
 export type LeftSection = 'mission' | 'time' | 'sun' | 'comm' | 'terrain' | 'science' | 'power' | 'search' | 'sites';
 export type RightSection = 'recap' | 'adequacy' | 'compare' | 'horizon';
+export interface PresentationState {
+  active: boolean;
+  slide: number;
+  qaId: number | null;
+  orbit: boolean;
+  openerFading: boolean;
+  qaPanel: 'baselines' | 'telemetry' | null;
+}
+
 export type RecapSort = 'feasibility' | 'suitability' | 'confidence' | 'dSun' | 'dDark' | 'cEarth' | 'slope' | 'power';
 export type RecapFeasFilter = 'all' | 'PASS' | 'UNKNOWN' | 'FAIL';
 
@@ -186,8 +195,10 @@ export interface AppState {
   autoVerify: boolean;
   perf: { fps: number; tiles: number; triangles: number; shadowMs: number };
   resolution: { source: string; sourceM: number; meshM: number; effectiveM: number | null; measuredPct: number | null; sigmaZ: number | null; imagery: string } | null;
-  flyTo: { lat: number; lon: number; rangeKm: number; key: number } | null;
+  flyTo: { lat: number; lon: number; rangeKm: number; heading?: number; tilt?: number; dur?: number; key: number } | null;
   toast: { msg: string; icon?: 'warn' | 'info' | 'pole' } | null;
+  mathDrawerOpen: boolean;
+  presentation: PresentationState;
 
   set: (p: Partial<AppState>) => void;
   setCriteria: (p: Partial<Criteria>) => void;
@@ -203,7 +214,7 @@ export interface AppState {
   clearPins: () => void;
   setRecapFilter: (p: Partial<RecapFilter>) => void;
   setGlobe: (p: Partial<AppState['globe']>) => void;
-  requestFlyTo: (lat: number, lon: number, rangeKm: number) => void;
+  requestFlyTo: (lat: number, lon: number, rangeKm: number, opts?: { heading?: number; tilt?: number; dur?: number }) => void;
   nav: (c: NavCommand) => void;
   notify: (msg: string, opts?: { icon?: 'warn' | 'info' | 'pole' }) => void;
   openLeft: (s: LeftSection) => void;
@@ -217,7 +228,25 @@ function loadPrefs(): Partial<AppState> {
     const raw = localStorage.getItem('hecate.prefs');
     if (!raw) return {};
     const p = JSON.parse(raw);
-    const pins: Pin[] = Array.isArray(p.pins) ? p.pins : [];
+    let pins: Pin[] = Array.isArray(p.pins)
+      ? p.pins.filter((q: Pin) => !String(q?.id ?? '').startsWith('pres-'))
+      : [];
+    // One-time cleanup for any CR-A pin persisted by Presentation Mode prior to isolation.
+    let migrated = false;
+    try {
+      if (!localStorage.getItem('hecate.presClean1')) {
+        if (pins.length === 1 && pins[0]?.siteId === 'CR-A') {
+          pins = [];
+          migrated = true;
+        }
+        localStorage.setItem('hecate.presClean1', '1');
+        if (migrated) {
+          localStorage.setItem('hecate.prefs', JSON.stringify({ ...p, pins }));
+        }
+      }
+    } catch {
+      /* storage unavailable */
+    }
     return {
       theme: p.theme === 'light' ? 'light' : 'dark',
       tier: p.tier === 'advanced' ? 'advanced' : 'beginner',
@@ -302,6 +331,8 @@ export const useApp = create<AppState>((set, get) => ({
   resolution: null,
   flyTo: null,
   toast: null,
+  mathDrawerOpen: false,
+  presentation: { active: false, slide: 0, qaId: null, orbit: false, openerFading: false, qaPanel: null },
   ...loadPrefs(),
 
   set: (p) => set(p),
@@ -357,7 +388,8 @@ export const useApp = create<AppState>((set, get) => ({
   clearPins: () => set({ pins: [], compareIds: [], compare: null }),
   setRecapFilter: (p) => set((s) => ({ recapFilter: { ...s.recapFilter, ...p } })),
   setGlobe: (p) => set((s) => ({ globe: { ...s.globe, ...p } })),
-  requestFlyTo: (lat, lon, rangeKm) => set((s) => ({ flyTo: { lat, lon, rangeKm, key: (s.flyTo?.key ?? 0) + 1 } })),
+  requestFlyTo: (lat, lon, rangeKm, opts) =>
+    set((s) => ({ flyTo: { lat, lon, rangeKm, heading: opts?.heading, tilt: opts?.tilt, dur: opts?.dur, key: (s.flyTo?.key ?? 0) + 1 } })),
   nav: (c) => set((s) => ({ navCommand: c, navSeq: s.navSeq + 1 })),
   notify: (msg, opts) => {
     const next = { msg, icon: opts?.icon };
@@ -371,11 +403,13 @@ export const useApp = create<AppState>((set, get) => ({
   openRight: (sec) => set((s) => ({ rightSection: s.rightSection === sec ? null : sec, uiHidden: false, ...(narrow() && s.rightSection !== sec ? { leftSection: null } : {}) })),
 }));
 
-// Persist a few per-viewer conveniences.
+// Persist a few per-viewer conveniences (never persist transient Presentation Mode state).
 useApp.subscribe((s, prev) => {
+  if (s.presentation.active || prev.presentation.active) return;
   if (s.theme === prev.theme && s.tier === prev.tier && s.lonConvention === prev.lonConvention && s.pins === prev.pins && s.playSpeed === prev.playSpeed) return;
+  const persistPins = s.pins.filter((q) => !String(q.id).startsWith('pres-'));
   try {
-    localStorage.setItem('hecate.prefs', JSON.stringify({ theme: s.theme, tier: s.tier, lonConvention: s.lonConvention, pins: s.pins, playSpeed: s.playSpeed }));
+    localStorage.setItem('hecate.prefs', JSON.stringify({ theme: s.theme, tier: s.tier, lonConvention: s.lonConvention, pins: persistPins, playSpeed: s.playSpeed }));
   } catch {
     /* storage unavailable */
   }

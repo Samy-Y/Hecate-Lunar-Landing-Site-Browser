@@ -273,3 +273,327 @@ code.live.math { font-family: var(--mono); font-size: 12px; }
 /* ===================== Mission → custom ranking weights ===================== */
 .weights-edit { display: grid; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); }
 .weights-edit .field-label { flex-wrap: wrap; row-gap: 2px; }
+
+/* ===================== Presentation Mathematical Model Drawer ===================== */
+.app.pres-active .math-drawer-body { display: grid; gap: 8px; padding: 6px 0 2px; }
+.app.pres-active .math-drawer-body .math-box { padding: 7px 10px; }
+.app.pres-active .math-drawer-body .katex-display { margin: 4px 0 2px; font-size: 0.94em; overflow-x: auto; overflow-y: hidden; }
+
+/* ===================== Presentation Mode (Shift+Alt+P) ===================== */
+.pres-opener {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: #000000;
+  display: grid;
+  place-items: center;
+  opacity: 1;
+  transition: opacity 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pres-opener.fading { opacity: 0; pointer-events: none; }
+.pres-opener-logo {
+  width: min(440px, 72vw);
+  height: auto;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+
+.pres-card {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 35;
+  width: min(560px, calc(100% - 36px));
+  max-width: 560px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: rgba(14, 18, 25, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(110, 148, 185, 0.32);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.62);
+  color: #edf1f7;
+  font-family: var(--font);
+  display: grid;
+  gap: 11px;
+  pointer-events: auto;
+}
+.pres-card.map2d { bottom: 48px; }
+@media (max-width: 1100px) {
+  .workbench:has(> .side.left.open) .pres-card { left: calc(min(380px, 100vw - 40px) + 12px); }
+}
+
+.pres-head { display: flex; align-items: center; gap: 10px; }
+.pres-badge {
+  font: 700 15px/1 'Space Mono', var(--mono);
+  letter-spacing: 0.05em;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(86, 180, 233, 0.18);
+  border: 1px solid rgba(86, 180, 233, 0.48);
+  color: #7cc9f3;
+}
+.pres-badge.qa {
+  background: rgba(230, 159, 0, 0.2);
+  border-color: rgba(230, 159, 0, 0.55);
+  color: #f6c25b;
+}
+.pres-kicker {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #9fb0c6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pres-nav { margin-left: auto; display: inline-flex; gap: 6px; opacity: 0; transition: opacity 0.16s ease; }
+.pres-card:hover .pres-nav, .pres-card:focus-within .pres-nav, .pres-qa-card .pres-nav { opacity: 1; }
+.pres-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 1px solid rgba(140, 160, 185, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  color: #dbe4f0;
+  font: 700 17px/1 var(--font);
+  cursor: pointer;
+  padding: 0;
+}
+.pres-btn:hover:not(:disabled) { border-color: #56b4e9; color: #56b4e9; }
+.pres-btn:disabled { opacity: 0.3; cursor: default; }
+
+.pres-title {
+  margin: 0;
+  font-size: clamp(26px, 2.5vw, 34px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: #ffffff;
+}
+.pres-body { display: grid; gap: 12px; }
+.pres-copy { margin: 0; font-size: clamp(18px, 1.45vw, 22px); line-height: 1.4; color: #d3dcea; }
+.pres-num { font-family: 'Space Mono', var(--mono); color: #ffffff; }
+
+.pres-metrics { display: flex; flex-wrap: wrap; gap: 8px 14px; padding-top: 2px; }
+.pres-metrics > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(140, 160, 185, 0.2);
+  font-size: 15px;
+  color: #a9b8cc;
+}
+.pres-metrics > span b { font-size: 20px; font-weight: 700; color: #ffffff; }
+
+.pres-thumbs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pres-thumb {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(140, 160, 185, 0.22);
+}
+.pres-thumb img { width: 56px; height: 42px; object-fit: contain; border-radius: 5px; background: #0c0f14; }
+.pres-thumb span { display: grid; gap: 2px; font-size: 13.5px; line-height: 1.25; color: #b4c0d0; }
+.pres-thumb b { color: #ffffff; font-size: 15px; }
+
+.pres-roadmap { display: grid; gap: 8px; font-size: 17px; color: #d3dcea; }
+.pres-roadmap > div {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #56b4e9;
+}
+.pres-roadmap > div b { color: #ffffff; }
+
+/* ===================== Decluttered & Simplified Presentation Shell ===================== */
+.app.pres-active .app-header,
+.app.pres-active .statusbar,
+.app.pres-active .side .ribbon,
+.app.pres-active .toast,
+.app.pres-active .vp-tools,
+.app.pres-active .vp-fs,
+.app.pres-active .layer-panel .lp-head,
+.app.pres-active .layer-panel:not(:has(.legend)),
+.app.pres-active .vp-hud,
+.app.pres-active .timeline,
+.app.pres-active .side-head .icon-btn,
+.app.pres-active .i-btn,
+.app.pres-active kbd {
+  display: none !important;
+}
+
+/* Remove side border seams when panels are collapsed in Presentation Mode */
+.app.pres-active .side:not(.open) { border: 0; }
+.app.pres-active .workbench { grid-template-columns: auto minmax(0, 1fr) auto; }
+@media (max-width: 1100px) {
+  .app.pres-active .workbench { grid-template-columns: 0 minmax(0, 1fr) 0; }
+  .app.pres-active .side.left .side-content { left: 0; width: min(380px, calc(100vw - 40px)); }
+  .app.pres-active .side.right .side-content { right: 0; width: min(420px, calc(100vw - 40px)); }
+}
+
+/* Spatial HUD shown cleanly only on Slide 03 without auxiliary buttons */
+.app.pres-active.pres-s-3:not(.pres-qa) .vp-hud { display: flex !important; }
+.app.pres-active.pres-s-3:not(.pres-qa) .vp-hud .hud-buttons { display: none; }
+.app.pres-active.pres-s-3:not(.pres-qa) .vp-hud .navhub { opacity: 0.92; }
+.app.pres-active.pres-s-3:not(.pres-qa) .vp-hud .dial { width: 96px; }
+.app.pres-active.pres-s-3:not(.pres-qa) .vp-hud .dial svg { width: 84px; height: 84px; }
+.app.pres-active.pres-s-3:not(.pres-qa) .vp-hud .dial-read { font-size: 13px; }
+
+/* Simplified enlarged timeline only on Slide 05 */
+.app.pres-active.pres-s-5:not(.pres-qa) .timeline {
+  display: grid !important;
+  padding: 12px 22px 14px;
+  gap: 8px;
+}
+.app.pres-active.pres-s-5:not(.pres-qa) .tl-controls > *:not(.icon-btn):not(.tl-epoch) { display: none; }
+.app.pres-active.pres-s-5:not(.pres-qa) .tl-controls { gap: 14px; }
+.app.pres-active.pres-s-5:not(.pres-qa) .tl-epoch { font: 700 22px/1.2 'Space Mono', var(--mono); color: #ffffff; min-width: 240px; }
+.app.pres-active.pres-s-5:not(.pres-qa) .tl-track { height: 66px; margin-left: 74px; }
+.app.pres-active.pres-s-5:not(.pres-qa) .tl-labels { left: -74px; width: 68px; font-size: 13.5px; }
+.app.pres-active.pres-s-5:not(.pres-qa) .tl-tick { font-size: 13px; }
+.app.pres-active.pres-s-5:not(.pres-qa) .tl-window-label { font-size: 13px; font-weight: 700; }
+
+/* Enlarged clean floating heatmap legend */
+.app.pres-active .layer-panel { background: transparent; border: 0; box-shadow: none; width: auto; }
+.app.pres-active .layer-panel .legend {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(14, 18, 25, 0.9);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(110, 148, 185, 0.3);
+  color: #edf1f7;
+  font-size: 15px;
+  min-width: 240px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+.app.pres-active .layer-panel .lg-title { font-size: 16px; font-weight: 700; color: #ffffff; }
+.app.pres-active .layer-panel .legend .small { font-size: 13.5px; }
+
+/* Enlarged simplified side drawers */
+.app.pres-active .side.left .side-content { width: min(410px, 34vw); }
+.app.pres-active .side.right .side-content { width: min(470px, 36vw); }
+.app.pres-active .side-head { font-size: 21px; font-weight: 700; padding: 14px 18px; }
+.app.pres-active .sec-body { font-size: 16px; gap: 14px; padding: 16px 18px 20px; }
+
+/* Simplified Forward Search panel (Slide 02 / Q&A) */
+.app.pres-active [data-tour="forward"] .sec-intro,
+.app.pres-active [data-tour="forward"] .auto-banner,
+.app.pres-active [data-tour="forward"] .row.gap,
+.app.pres-active [data-tour="forward"] .fs-reasons,
+.app.pres-active [data-tour="forward"] .note,
+.app.pres-active [data-tour="forward"] .cand-list .icon-btn,
+.app.pres-active [data-tour="forward"] .fs-stats > span.muted { display: none; }
+.app.pres-active [data-tour="forward"] .fs-stats { font-size: 17px; gap: 10px 14px; }
+.app.pres-active [data-tour="forward"] .fs-stats b { font-size: 23px; font-family: 'Space Mono', var(--mono); }
+.app.pres-active [data-tour="forward"] .cand-list button { font-size: 15.5px; padding: 9px 10px; }
+
+/* Simplified Adequacy & Horizon panels */
+.app.pres-active .site-switch,
+.app.pres-active .head-actions,
+.app.pres-active .badges-row { display: none; }
+.app.pres-active .site-head h2 { font-size: 24px; line-height: 1.2; }
+.app.pres-active .site-head .mono { font-size: 15.5px; font-family: 'Space Mono', var(--mono); }
+
+.app.pres-active .assess { padding: 16px; gap: 12px; }
+.app.pres-active .assess-k { font-size: 15px; }
+.app.pres-active .assess .big { font-size: 36px; font-family: 'Space Mono', var(--mono); }
+.app.pres-active .assess-detail { font-size: 15.5px; line-height: 1.4; }
+.app.pres-active .metrics > div { padding: 10px 12px; }
+.app.pres-active .metrics span { font-size: 14px; }
+.app.pres-active .metrics b { font-size: 21px; font-family: 'Space Mono', var(--mono); }
+
+/* Per-slide focused Adequacy sections (zero wall-of-text clutter) */
+.app.pres-active.pres-s-4 [data-tour="adequacy"] > details:not([data-pres="math-drawer"]),
+.app.pres-active.pres-s-4 [data-tour="adequacy"] > [data-pres="ephem-box"],
+.app.pres-active.pres-qa-2 [data-tour="adequacy"] > details:not([data-pres="math-drawer"]),
+.app.pres-active.pres-qa-2 [data-tour="adequacy"] > [data-pres="ephem-box"] { display: none; }
+
+.app.pres-active.pres-s-5 [data-tour="adequacy"] > details:not([data-pres="power-box"]),
+.app.pres-active.pres-s-5 [data-tour="adequacy"] > [data-pres="ephem-box"] { display: none; }
+
+.app.pres-active.pres-s-7 [data-tour="adequacy"] > details,
+.app.pres-active.pres-qa-3 [data-tour="adequacy"] > details { display: none; }
+
+.app.pres-active .math-drawer summary,
+.app.pres-active [data-pres="power-box"] summary { font-size: 18px; font-weight: 700; padding: 6px 0; }
+.app.pres-active .math-drawer-body .math-box { padding: 12px 14px; }
+.app.pres-active .math-drawer-body .muted { font-size: 14.5px; }
+.app.pres-active .math-drawer-body .katex { font-size: 1.24em; }
+
+.app.pres-active .power .kv { font-size: 16px; gap: 6px 12px; }
+.app.pres-active .power .power-spec-title { font-size: 15px; }
+
+.app.pres-active .ephem-box { padding: 16px 18px; gap: 10px; font-size: 17px; }
+.app.pres-active .ephem-box strong { font-size: 20px; display: block; margin-bottom: 4px; }
+.app.pres-active .ephem-box .small { font-size: 15.5px; line-height: 1.45; }
+.app.pres-active .ephem-box .btn { font-size: 15px; padding: 8px 14px; }
+
+.app.pres-active .now-grid .now { padding: 12px; font-size: 15.5px; }
+.app.pres-active .now-grid .now b { font-size: 18px; font-family: 'Space Mono', var(--mono); }
+.app.pres-active .now-grid .now .small { font-size: 14px; }
+.app.pres-active [data-tour="panorama"] > p.small { font-size: 14px; }
+
+/* Recap enlarged when triggered in Q&A */
+.app.pres-active .recap-list .recap-main { font-size: 16px; }
+.app.pres-active .recap-metrics { font-size: 14.5px; }
+.app.pres-active .modal { font-size: 16px; }
+.app.pres-active .modal-head h2 { font-size: 24px; }
+.app.pres-active .modal h3 { font-size: 19px; }
+.app.pres-active .disclaimer-copy strong { font-size: 17px; }
+.app.pres-active .disclaimer-copy p { font-size: 14.5px; line-height: 1.45; }
+
+.pres-qa-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 8, 12, 0.52);
+  pointer-events: auto;
+}
+.pres-qa-card {
+  width: min(860px, 95vw);
+  padding: 24px 28px;
+  border-radius: 16px;
+  background: rgba(14, 18, 25, 0.95);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(110, 148, 185, 0.36);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.72);
+  color: #edf1f7;
+}
+.pres-qa-card h3 { margin: 10px 0 14px; font-size: 24px; color: #ffffff; }
+.pres-qa-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+.pres-qa-table th { text-align: left; color: #9fb0c6; font-weight: 700; font-size: 14px; padding: 8px 10px; border-bottom: 1px solid rgba(140, 160, 185, 0.25); }
+.pres-qa-table td { padding: 10px; border-bottom: 1px solid rgba(140, 160, 185, 0.12); color: #e2e9f4; }
+.pres-qa-table tr.on td { background: rgba(86, 180, 233, 0.12); }
+.pres-apply { background: none; border: 0; color: #7cc9f3; font: 700 17px var(--font); padding: 0; cursor: pointer; text-align: left; }
+.pres-apply:hover { text-decoration: underline; }
+.pres-diag-log {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(140, 160, 185, 0.24);
+  font: 14px/1.5 'Space Mono', var(--mono);
+  color: #e2e9f4;
+  white-space: pre-wrap;
+  max-height: 260px;
+  overflow-y: auto;
+}

@@ -17,7 +17,7 @@ import { InfoTip } from '../common/InfoTip';
 import { Panorama } from './Panorama';
 import { Silhouettes } from './Silhouettes';
 import { PowerChart } from './PowerChart';
-import { Tx, tx } from '../common/Tx';
+import { MathTex, Tx, tx } from '../common/Tx';
 
 const ITEMS: { id: RightSection; label: string; icon: ReactNode }[] = [
   { id: 'recap', label: 'Recap', icon: <Icon.list /> },
@@ -394,6 +394,8 @@ function Adequacy() {
   const err = useApp((s) => s.analysisError);
   const pins = useApp((s) => s.pins);
   const lonC = useApp((s) => s.lonConvention);
+  const presActive = useApp((s) => s.presentation.active);
+  const mathOpen = useApp((s) => s.mathDrawerOpen);
   const pinned = !!sel && pins.some((p) => Math.hypot(p.x - sel.x, p.y - sel.y) < 1);
   const current = a && sel && Math.hypot(a.x - sel.x, a.y - sel.y) < 1 ? a : null;
   if (!sel)
@@ -436,11 +438,25 @@ function Adequacy() {
       ) : (
         <>
           <AssessmentCard />
+          {presActive && (
+            <details
+              className="math-drawer"
+              data-pres="math-drawer"
+              open={mathOpen}
+              onToggle={(e) => {
+                const next = (e.currentTarget as HTMLDetailsElement).open;
+                if (next !== useApp.getState().mathDrawerOpen) useApp.getState().set({ mathDrawerOpen: next });
+              }}
+            >
+              <summary>Mathematical model &amp; scoring</summary>
+              <MathModelBlock />
+            </details>
+          )}
           <details open>
             <summary>Constraints & utilities</summary>
             <ChecksBlock />
           </details>
-          <details open>
+          <details open data-pres={presActive ? 'power-box' : undefined}>
             <summary>Solar power</summary>
             <PowerChart />
           </details>
@@ -616,11 +632,55 @@ function DataBlock() {
   );
 }
 
+function MathModelBlock() {
+  const a = useApp((s) => s.analysis)!;
+  const s = a.assessment;
+  const t = a.terrain;
+  const w = s.weights;
+  const p = useApp((st) => st.power);
+  return (
+    <div className="math-drawer-body">
+      <div className="math-box live">
+        <div className="small muted">1. Non-compensatory gate <MathTex tex="G_{\mathrm{hard}}" /></div>
+        <MathTex
+          display
+          tex={`\\mathrm{Feasibility}=\\begin{cases}\\mathrm{PASS}& G_{\\mathrm{hard}}\\land C_{\\mathrm{data}}\\ge C_{\\min}\\\\ \\mathrm{UNKNOWN}& \\text{missing }L_{\\mathrm{base}}\\|\\;C_{\\mathrm{data}}<C_{\\min}\\\\ \\mathrm{FAIL}& \\text{any hard gate violated}\\end{cases}\\;\\Rightarrow\\;\\mathbf{${s.status}}`}
+        />
+      </div>
+      <div className="math-box">
+        <div className="small muted">2. Weighted suitability <MathTex tex="S_{\mathrm{suit}}" /></div>
+        <MathTex
+          display
+          tex={`S_{\\mathrm{suit}} = 100\\frac{\\sum_k w_k u_k}{\\sum_{u_k\\neq\\varnothing} w_k} = ${fmt(s.suitability, 1)}`}
+        />
+        <div className="small muted mono">
+          {tx(`$w_{\\mathrm{sun}}=${fmt(w.sun, 2)},\\; w_{\\mathrm{comm}}=${fmt(w.comm, 2)},\\; w_{\\alpha}=${fmt(w.slope, 2)},\\; w_{\\mathrm{TRI}}=${fmt(w.tri, 2)}$`)}
+        </div>
+      </div>
+      <div className="math-box">
+        <div className="small muted">3. Data confidence <MathTex tex="C_{\mathrm{data}}" /></div>
+        <MathTex
+          display
+          tex={`C_{\\mathrm{data}} = 100\\bigl(0.5(${fmt(t.qSource, 2)}) + 0.3(${fmt(1 - t.fInterp, 2)}) + 0.2(${fmt(s.qHorizon, 2)})\\bigr) = ${fmt(s.confidence, 1)}`}
+        />
+      </div>
+      <div className="math-box">
+        <div className="small muted">4. Terrain horizon &amp; solar array power</div>
+        <MathTex
+          display
+          tex={`h_{\\mathrm{mask}}(\\varphi) = \\max_{d\\le 150\\,\\mathrm{km}}\\!\\left(\\arctan\\frac{\\Delta z}{d} - \\frac{d}{2R_{\\mathrm{M}}}\\right),\\; \\bar{P} = ${fmt(a.power.meanW, 0)}\\,\\mathrm{W}\\;(\\eta=${fmt(p.efficiency * 100, 0)}\\%)`}
+        />
+      </div>
+    </div>
+  );
+}
+
 function EphemerisBox() {
   const ephem = useApp((s) => s.ephem);
   const sel = useApp((s) => s.selection);
+  const presActive = useApp((s) => s.presentation.active);
   return (
-    <div className={`ephem-box ${ephem.mode}`}>
+    <div className={`ephem-box ${ephem.mode}`} data-pres={presActive ? 'ephem-box' : undefined}>
       <div><strong>Ephemeris</strong> <span className="small">{ephem.detail}</span></div>
       <button className="btn small" disabled={!sel || ephem.mode === 'checking'} onClick={() => sel && verifyWithHorizons(sel)}>Verify with JPL Horizons</button>
     </div>

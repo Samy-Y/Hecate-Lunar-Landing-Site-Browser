@@ -49,7 +49,7 @@ export function applySession(raw: unknown) {
   useApp.setState({
     mode: p.mode, view: p.view, presetId: p.presetId, basePresetId: p.presetId && p.presetId !== 'custom' ? p.presetId : 'artemis3',
     criteria: p.criteria, power: p.power, slipOffsetH: p.slipOffsetH,
-    epoch: p.epoch, selection: p.selection, pins: p.pins ?? [], compareIds: p.compareIds ?? [], layer: p.layer,
+    epoch: p.epoch, selection: p.selection, pins: (p.pins ?? []).filter((q) => !String(q?.id ?? '').startsWith('pres-')), compareIds: (p.compareIds ?? []).filter((i) => !String(i).startsWith('pres-')), layer: p.layer,
     globe: { ...useApp.getState().globe, ...p.globe }, screen: 'workbench',
   });
   useApp.getState().notify(`Session from ${p.saved.slice(0, 16).replace('T', ' ')}Z restored`);

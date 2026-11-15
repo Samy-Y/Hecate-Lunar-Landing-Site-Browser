@@ -495,7 +495,7 @@ export function PolarMap() {
         keys.current.add(e.key);
       }
       if (e.key === 'Shift') keys.current.add('Shift');
-      if ((e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.metaKey) useApp.getState().togglePin();
+      if ((e.key === 'p' || e.key === 'P') && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) useApp.getState().togglePin();
     };
     const up = (e: KeyboardEvent) => {
       keys.current.delete(e.key);
