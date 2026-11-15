@@ -325,7 +325,7 @@ function SlideBody({ slide, qaId }: { slide: number; qaId: number | null }) {
         <div className="pres-body">
           <div className="pres-roadmap">
             <div><span className="pres-num">01</span><b>Impact Risk (50 cm)</b></div>
-            <div><span className="pres-num">02</span><b>Cratères composés ou doubles</b></div>
+            <div><span className="pres-num">02</span><b>Complex craters</b></div>
             <div><span className="pres-num">03</span><b>ML Boulders &amp; &lt;110 K Volatiles</b></div>
             <div><span className="pres-num">04</span><b>UI/UX Refinements</b></div>
           </div>
