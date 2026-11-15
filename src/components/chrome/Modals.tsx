@@ -159,7 +159,6 @@ export function SettingsModal() {
           <Toggle label="TRI hard gate" checked={c.triGate} onChange={(v) => setC({ triGate: v })} defaultChecked={base.criteria.triGate} onReset={() => setC({ triGate: base.criteria.triGate })} />
           <Toggle label="CPR hard gate" checked={c.cprGate} onChange={(v) => setC({ cprGate: v })} defaultChecked={base.criteria.cprGate} onReset={() => setC({ cprGate: base.criteria.cprGate })} />
           <Toggle label="PSR science filter" checked={c.psrFilter} onChange={(v) => setC({ psrFilter: v })} defaultChecked={base.criteria.psrFilter} onReset={() => setC({ psrFilter: base.criteria.psrFilter })} />
-          <p className="small muted">Ranking-weight presets and custom weights are set in the left panel → Mission.</p>
         </section>
       </div>
     </Modal>
